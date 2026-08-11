@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Support Escalation Hub</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+.table-fixed-layout {
+table-layout: fixed;
+width: 100%;
+}
+</style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased selection:bg-emerald-500 selection:text-white">
+
+<!-- LOGIN SCREEN OVERLAY -->
+<div id="login-overlay" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+<div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border border-slate-200">
+<div class="text-center mb-6">
+<div class="inline-flex items-center justify-center w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl mb-4 shadow-inner">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+</div>
+<h2 class="text-2xl font-black text-slate-900 tracking-tight">Support Escalation Hub</h2>
+<p class="text-xs text-slate-500 mt-1">Select your official profile to enter the workspace</p>
+</div>
+
+<form onsubmit="executeLogin(event)" class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select User Account</label>
+<select id="login-user-select" required onchange="toggleLoginPasswordField()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+<option value="">Loading roster members...</option>
+</select>
+</div>
+<div id="login-password-row" class="hidden">
+<label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Admin Password</label>
+<input type="password" id="login-password-input" placeholder="Enter your Admin password" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none transition">
+<p id="login-error-msg" class="text-xs text-red-600 font-semibold mt-1 hidden"></p>
+</div>
+<button type="submit" id="login-submit-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-emerald-600/30 transition">
+Sign In to Portal &rarr;
+</button>
+</form>
+</div>
+</div>
+
+<!-- MAIN APP CONTAINER -->
+<div id="app-container" class="hidden min-h-screen flex flex-col">
+<!-- Header Navigation -->
+<header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
+<div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 bg-emerald-500 rounded-lg flex items-center justify-center font-black text-slate-950 text-lg shadow">H</div>
+<div>
+<h1 class="text-base font-bold tracking-tight">Support Escalation Hub</h1>
+<p id="current-date" class="text-[10px] text-slate-400"></p>
+</div>
+</div>
+<!-- User Badge -->
+<div class="flex items-center space-x-3 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+<div class="text-right">
+<p id="header-user-name" class="font-bold text-white text-xs">User Name</p>
+</div>
+<div>
+<span id="user-role-tag" class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-400 text-slate-950">Coordinator</span>
+</div>
+<button onclick="logoutToLogin()" class="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded-md text-slate-300 font-semibold transition ml-2">Logout</button>
+</div>
+</div>
+<!-- Tabs Navigation -->
+<div class="max-w-7xl mx-auto px-4 flex space-x-8 text-xs font-semibold border-t border-slate-800">
+<button onclick="switchTab('coordinator')" id="tab-coordinator" class="py-3 text-emerald-400 border-b-2 border-emerald-400">Coordinator Workspace</button>
+<button onclick="switchTab('answered')" id="tab-answered" class="py-3 text-slate-400 hover:text-white flex items-center gap-1.5">
+<span>Answered Tickets</span>
+<span id="unread-ticker" class="hidden bg-red-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">0</span>
+</button>
+<button onclick="switchTab('all-tickets')" id="tab-all-tickets" class="py-3 text-slate-400 hover:text-white">All Questions / Tickets</button>
+<!-- Supervisor Restricted Tabs -->
+<button onclick="switchTab('supervisor')" id="tab-supervisor" class="py-3 text-slate-400 hover:text-white hidden flex items-center gap-1.5">Supervisor Desk <span id="pending-ticker" class="hidden bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">0</span></button>
+<button onclick="switchTab('reporting')" id="tab-reporting" class="py-3 text-slate-400 hover:text-white hidden">Reporting Analytics</button>
+<button onclick="switchTab('team')" id="tab-team" class="py-3 text-slate-400 hover:text-white hidden">Team Setup</button>
+</div>
+</header>
+
+<div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2"></div>
+
+<main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+
+<!-- TAB 1: COORDINATOR WORKSPACE -->
+<section id="view-coordinator" class="space-y-6">
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<h2 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+<span class="w-2 h-2 bg-emerald-500 rounded-full"></span> Submit Escalation Question
+</h2>
+<form id="question-form" onsubmit="handleQuestionSubmit(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="md:col-span-2">
+<label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Question Details *</label>
+<textarea id="inp-question" required rows="3" class="w-full border border-slate-300 p-3 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" placeholder="Describe the issue or escalation request in detail..."></textarea>
+</div>
+<div>
+<label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Event / Wedding Name *</label>
+<input type="text" id="inp-event" required class="w-full border border-slate-300 p-2.5 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" placeholder="e.g. Smith Wedding">
+</div>
+<div>
+<label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Case / Event URL *</label>
+<input type="url" id="inp-link" required class="w-full border border-slate-300 p-2.5 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none transition" placeholder="https://salesforce.com/...">
+</div>
+
+<!-- URGENT PRIORITY CHECKBOX -->
+<div class="md:col-span-2 flex items-center justify-between pt-2 border-t border-slate-100 mt-1">
+<label class="inline-flex items-center gap-2 cursor-pointer select-none">
+<input type="checkbox" id="inp-urgent" class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 accent-red-600">
+<span class="text-xs font-bold text-red-600 flex items-center gap-1">
+<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+Mark as Urgent Escalation (Forces Top Priority P1)
+</span>
+</label>
+
+<button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md transition">Submit Escalation Question</button>
+</div>
+</form>
+</div>
+
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+<div>
+<h2 class="text-base font-bold text-slate-800">My Active Submitted Questions</h2>
+<p class="text-xs text-slate-500">Tracking open tickets submitted by <span id="log-filter-user" class="font-semibold text-slate-700"></span></p>
+</div>
+<div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+<input type="text" id="coord-search" oninput="renderCoordinatorQuestions()" placeholder="Search active..." class="border border-slate-300 px-3 py-1.5 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500">
+<select id="coord-prio-filter" onchange="renderCoordinatorQuestions()" class="border border-slate-300 px-2 py-1.5 rounded-lg text-xs outline-none">
+<option value="ALL">All Priorities</option>
+<option value="P1">P1 Urgent</option>
+<option value="P2">P2 High</option>
+<option value="P3">P3 Medium</option>
+<option value="P4">P4 Normal</option>
+</select>
+<input type="date" id="coord-date-filter" onchange="renderCoordinatorQuestions()" class="border border-slate-300 px-2 py-1.5 rounded-lg text-xs outline-none">
+</div>
+</div>
+
+<div class="overflow-x-auto border rounded-xl border-slate-200">
+<table class="table-fixed-layout text-left text-xs">
+<thead>
+<tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+<th class="p-3 w-16">PRIO</th>
+<th class="p-3 w-28">SUBMITTED</th>
+<th class="p-3 w-36">EVENT</th>
+<th class="p-3">QUESTION</th>
+<th class="p-3 w-36">ASKED BY</th>
+<th class="p-3 w-28 text-center">STATUS</th>
+</tr>
+</thead>
+<tbody id="coord-table-body" class="divide-y divide-slate-100"></tbody>
+</table>
+</div>
+</div>
+</section>
+
+<!-- TAB 2: ANSWERED TICKETS -->
+<section id="view-answered" class="hidden space-y-6">
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+<div>
+<h2 class="text-base font-bold text-slate-800">Answered Tickets Desk</h2>
+<p class="text-xs text-slate-500">Review supervisor answers and resolution turnaround times</p>
+</div>
+
+<div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+<input type="text" id="answered-search" oninput="renderAnsweredTab()" placeholder="Search answers..." class="border border-slate-300 px-3 py-1.5 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500">
+<select id="answered-read-filter" onchange="renderAnsweredTab()" class="border border-slate-300 px-2 py-1.5 rounded-lg text-xs outline-none">
+<option value="ALL">All Read States</option>
+<option value="UNREAD">Unread Only</option>
+<option value="READ">Read Only</option>
+</select>
+<input type="date" id="answered-date-filter" onchange="renderAnsweredTab()" class="border border-slate-300 px-2 py-1.5 rounded-lg text-xs outline-none">
+</div>
+</div>
+
+<div class="overflow-x-auto border rounded-xl border-slate-200">
+<table class="table-fixed-layout text-left text-xs">
+<thead>
+<tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+<th class="p-3 w-20">STATUS</th>
+<th class="p-3 w-36">EVENT</th>
+<th class="p-3">QUESTION & ANSWER PREVIEW</th>
+<th class="p-3 w-36">ANSWERED BY</th>
+<th class="p-3 w-24 text-center">SPEED</th>
+<th class="p-3 w-28 text-right">ACTION</th>
+</tr>
+</thead>
+<tbody id="answered-table-body" class="divide-y divide-slate-100"></tbody>
+</table>
+</div>
+</div>
+</section>
+
+<!-- TAB 3: ALL QUESTIONS / TICKETS VIEW -->
+<section id="view-all-tickets" class="hidden space-y-6">
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+<div>
+<h2 class="text-base font-bold text-slate-800">Global Ticket Feed</h2>
+<p class="text-xs text-slate-500">Live stream of all questions and resolution activity</p>
+</div>
+<div class="flex items-center gap-2 w-full md:w-auto">
+<!-- GLOBAL FEED TYPE FILTER (ALL / QUESTIONS / ANSWERED) -->
+<select id="all-type-filter" onchange="renderAllTickets()" class="border border-slate-300 px-3 py-1.5 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium">
+<option value="ALL">All Tickets</option>
+<option value="QUESTIONS">Open Questions Only</option>
+<option value="ANSWERED">Answered Only</option>
+</select>
+
+<input type="text" id="all-search" oninput="renderAllTickets()" placeholder="Search global feed..." class="border border-slate-300 px-3 py-1.5 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 w-full md:w-64">
+</div>
+</div>
+
+<div class="overflow-x-auto border rounded-xl border-slate-200">
+<table class="table-fixed-layout text-left text-xs">
+<thead>
+<tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+<th class="p-3 w-20">PRIO</th>
+<th class="p-3 w-36">EVENT</th>
+<th class="p-3">QUESTION</th>
+<th class="p-3 w-36">ASKED BY</th>
+<th class="p-3 w-16 text-center">LINK</th>
+<th class="p-3 w-28 text-center">STATUS</th>
+<th id="all-admin-th" class="p-3 w-28 text-right hidden">ADMIN</th>
+</tr>
+</thead>
+<tbody id="all-tickets-table-body" class="divide-y divide-slate-100"></tbody>
+</table>
+</div>
+</div>
+</section>
+
+<!-- TAB 4: SUPERVISOR DESK -->
+<section id="view-supervisor" class="hidden space-y-6">
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+<div>
+<h2 class="text-base font-bold text-slate-800">Supervisor Resolution Queue</h2>
+<p class="text-xs text-slate-500">Click a card to open it, or check boxes to bulk-assign to a colleague</p>
+</div>
+<div class="flex items-center gap-2">
+<select id="sup-scope-filter" onchange="renderSupervisorQueue()" class="border border-slate-300 px-2 py-1.5 rounded-lg text-xs outline-none">
+<option value="MINE">My Queue (Unassigned + Mine)</option>
+<option value="ALL">All Open Tickets</option>
+</select>
+<input type="text" id="sup-search" oninput="renderSupervisorQueue()" placeholder="Search queue..." class="border border-slate-300 px-3 py-1.5 rounded-lg text-xs outline-none w-64">
+</div>
+</div>
+
+<div class="flex items-center justify-between mb-3 text-xs">
+<label class="inline-flex items-center gap-2 cursor-pointer select-none text-slate-500 font-semibold">
+<input type="checkbox" id="sup-select-all" onchange="toggleSelectAllQueue(this.checked)" class="w-3.5 h-3.5 rounded border-slate-300 accent-slate-800">
+Select all shown
+</label>
+</div>
+
+<div id="sup-bulk-toolbar" class="hidden items-center justify-between gap-3 bg-slate-900 text-white rounded-xl px-4 py-2.5 mb-3 text-xs shadow-lg">
+<span id="sup-bulk-count" class="font-bold">0 selected</span>
+<div class="flex items-center gap-2">
+<select id="sup-bulk-assignee" class="text-slate-900 rounded-lg px-2 py-1.5 text-xs outline-none"></select>
+<button onclick="submitBulkAssign()" class="bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg font-bold transition">Assign Selected &rarr;</button>
+<button onclick="clearQueueSelection()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg font-semibold transition">Clear</button>
+</div>
+</div>
+
+<div id="supervisor-queue" class="space-y-3"></div>
+</div>
+</section>
+
+<!-- TAB 5: REPORTING -->
+<section id="view-reporting" class="hidden space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div onclick="filterReport('unanswered')" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer hover:border-red-400 transition">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Unanswered Escalations</p>
+<p class="text-3xl font-black text-red-600 mt-2" id="stat-unanswered">0</p>
+</div>
+<div onclick="filterReport('answered')" class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer hover:border-emerald-400 transition">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Resolved Tickets</p>
+<p class="text-3xl font-black text-emerald-600 mt-2" id="stat-answered">0</p>
+</div>
+</div>
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<h3 class="text-sm font-bold text-slate-800 mb-4" id="report-detail-title">Detailed Records</h3>
+<div class="overflow-x-auto border rounded-xl border-slate-200">
+<table class="table-fixed-layout text-left text-xs">
+<thead>
+<tr class="bg-slate-50 border-b text-slate-500">
+<th class="p-3">QUESTION</th>
+<th class="p-3 w-40">ASKED BY</th>
+<th class="p-3 w-40">ANSWERED BY</th>
+<th class="p-3 w-28 text-center">STATUS</th>
+</tr>
+</thead>
+<tbody id="report-table-body" class="divide-y divide-slate-100"></tbody>
+</table>
+</div>
+</div>
+</section>
+
+<!-- TAB 6: TEAM SETUP -->
+<section id="view-team" class="hidden space-y-6">
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+<h2 class="text-base font-bold text-slate-800 mb-4">Team Roster Management</h2>
+<form id="team-form" onsubmit="handleTeamSubmit(event)" class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+<input type="hidden" id="team-row-index">
+<input type="text" id="team-name" required placeholder="Full Name" class="border border-slate-300 p-2 rounded-lg text-xs">
+<select id="team-title" class="border border-slate-300 p-2 rounded-lg text-xs">
+<option>Coordinator</option>
+<option>Sr. Coordinator</option>
+<option>Supervisor</option>
+<option>Escalation Supervisor</option>
+<option>Assistant Manager</option>
+<option>Manager</option>
+</select>
+<select id="team-status" class="border border-slate-300 p-2 rounded-lg text-xs">
+<option value="active">Active</option>
+<option value="inactive">Inactive</option>
+</select>
+<select id="team-category" onchange="toggleTeamPasswordField()" class="border border-slate-300 p-2 rounded-lg text-xs">
+<option value="Coordinator">Coordinator</option>
+<option value="Support">Support</option>
+<option value="Admin">Admin</option>
+</select>
+<input type="email" id="team-email" required placeholder="User Email" class="border border-slate-300 p-2 rounded-lg text-xs">
+<div id="team-password-row" class="hidden md:col-span-5">
+<input type="password" id="team-password" placeholder="Set Admin password (leave blank to keep current password on edit)" class="border border-slate-300 p-2 rounded-lg text-xs w-full md:w-1/2">
+<p class="text-[10px] text-slate-400 mt-1">Required when first creating an Admin account. Only an existing Admin can create another Admin or reset an Admin's password.</p>
+</div>
+<div class="md:col-span-5 flex justify-end">
+<button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-lg text-xs font-bold transition">Save Roster Member</button>
+</div>
+</form>
+<div class="overflow-x-auto border rounded-xl border-slate-200">
+<table class="table-fixed-layout text-left text-xs">
+<thead>
+<tr class="bg-slate-50 border-b text-slate-500">
+<th class="p-3 w-36">NAME</th>
+<th class="p-3 w-32">TITLE</th>
+<th class="p-3 w-20">STATUS</th>
+<th class="p-3 w-28">ROLE</th>
+<th class="p-3">EMAIL</th>
+<th class="p-3 w-28 text-right">ACTIONS</th>
+</tr>
+</thead>
+<tbody id="team-table-body" class="divide-y divide-slate-100"></tbody>
+</table>
+</div>
+</div>
+</section>
+
+</main>
+</div>
+
+<!-- HIGHLIGHTED ANSWER MODAL -->
+<div id="view-modal" class="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+<div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
+<div class="flex justify-between items-start mb-4 border-b pb-3">
+<div>
+<span id="vmodal-read-badge" class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-red-500 text-white">UNREAD</span>
+<h3 id="vmodal-event" class="text-lg font-black text-slate-900 mt-1">Event Name</h3>
+<p class="text-[11px] text-slate-400">Asked by: <span id="vmodal-asked" class="font-bold text-slate-700"></span></p>
+</div>
+<button onclick="closeViewModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+</div>
+
+<div class="space-y-4 text-xs">
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Original Escalation Question</label>
+<div id="vmodal-question" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-slate-800 leading-relaxed font-normal"></div>
+</div>
+
+<div>
+<label class="block text-[11px] font-black text-emerald-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+<svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+Supervisor Resolution & Answer
+</label>
+<div id="vmodal-answer" class="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-400 text-slate-900 text-sm leading-relaxed font-semibold shadow-inner"></div>
+</div>
+
+<div class="grid grid-cols-2 gap-3 text-[11px] bg-slate-50 p-3 rounded-xl border border-slate-200">
+<div><span class="text-slate-400">Answered By:</span> <strong id="vmodal-by" class="text-slate-800"></strong></div>
+<div><span class="text-slate-400">Resolution Speed:</span> <strong id="vmodal-speed" class="text-slate-800"></strong></div>
+<div class="col-span-2 truncate"><span class="text-slate-400">Case Link:</span> <a id="vmodal-link" href="#" target="_blank" class="text-blue-600 font-bold underline">Open Case Link &rarr;</a></div>
+</div>
+</div>
+
+<div class="flex justify-between items-center mt-6 border-t pt-4">
+<button id="vmodal-toggle-btn" onclick="toggleReadModal()" class="text-xs font-bold text-blue-600 hover:text-blue-800 underline">Mark as Read</button>
+<button onclick="closeViewModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2 rounded-xl text-xs font-bold shadow transition">Close</button>
+</div>
+</div>
+</div>
+
+<!-- SUPERVISOR ANSWER MODAL -->
+<div id="answer-modal" class="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+<div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
+<div class="flex justify-between items-start mb-4 border-b pb-3">
+<div>
+<span id="modal-priority-badge" class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-red-100 text-red-800">P1 Priority</span>
+<h3 id="modal-event-name" class="text-base font-bold text-slate-900 mt-1">Event Name</h3>
+<p class="text-[11px] text-slate-400">Submitted by: <strong id="modal-asked-by" class="text-slate-600">Asked By User</strong></p>
+</div>
+<button onclick="closeAnswerModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+</div>
+
+<div class="space-y-4">
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Question Details</label>
+<div id="modal-question-text" class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-800 leading-relaxed"></div>
+</div>
+
+<div id="modal-link-container">
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Case / Event Link</label>
+<a id="modal-case-link" href="#" target="_blank" class="text-xs font-semibold text-blue-600 underline break-all block truncate"></a>
+</div>
+
+<div>
+<label class="block text-xs font-bold text-slate-700 uppercase mb-1">Supervisor Answer / Resolution *</label>
+<textarea id="modal-answer-input" rows="4" class="w-full border border-slate-300 p-3 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Provide complete escalation answer..."></textarea>
+</div>
+
+<div id="modal-assign-row" class="hidden border-t border-slate-100 pt-4">
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Or, assign this to another supervisor as a task</label>
+<div class="flex gap-2">
+<select id="modal-assignee-select" class="flex-1 border border-slate-300 p-2 rounded-lg text-xs"></select>
+<button onclick="submitModalAssign()" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition shrink-0">Assign</button>
+</div>
+</div>
+</div>
+
+<div class="flex justify-end gap-2 mt-6 border-t pt-4">
+<button onclick="closeAnswerModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100">Cancel</button>
+<button onclick="submitModalAnswer()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-md">Submit & Move to Answered</button>
+</div>
+</div>
+</div>
+
+<!-- ADMIN EDIT MODAL - only Admin-category users can open this (client-gated, server re-checks) -->
+<div id="admin-edit-modal" class="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+<div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
+<div class="flex justify-between items-start mb-4 border-b pb-3">
+<div>
+<span class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-purple-100 text-purple-800">Admin Edit</span>
+<h3 class="text-base font-bold text-slate-900 mt-1">Edit Ticket Record</h3>
+</div>
+<button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+</div>
+
+<div class="space-y-4">
+<input type="hidden" id="edit-sheet">
+<input type="hidden" id="edit-row-index">
+
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Event / Wedding Name</label>
+<input type="text" id="edit-event-name" class="w-full border border-slate-300 p-2.5 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none">
+</div>
+
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Question</label>
+<textarea id="edit-question" rows="3" class="w-full border border-slate-300 p-3 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none"></textarea>
+</div>
+
+<div id="edit-answer-row">
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Answer</label>
+<textarea id="edit-answer" rows="3" class="w-full border border-slate-300 p-3 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none"></textarea>
+</div>
+
+<div>
+<label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Case / Event Link</label>
+<input type="url" id="edit-case-link" class="w-full border border-slate-300 p-2.5 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none">
+</div>
+
+<div id="edit-urgent-row" class="flex items-center gap-2">
+<input type="checkbox" id="edit-urgent" class="w-4 h-4 accent-red-600">
+<label class="text-xs font-bold text-red-600">Mark as Urgent (P1)</label>
+</div>
+</div>
+
+<div class="flex justify-between items-center mt-6 border-t pt-4">
+<button onclick="submitDeleteFromEditModal()" class="text-red-600 hover:text-red-800 font-bold text-xs underline">Delete Permanently</button>
+<div class="flex gap-2">
+<button onclick="closeEditModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100">Cancel</button>
+<button onclick="submitEditModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-md">Save Changes</button>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+let currentUser = null;
+let allQuestions = [];
+let teamMembers = [];
+let activeModalRowIndex = null;
+let activeViewQuestion = null;
+
+window.onload = function() {
+document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+google.script.run.withSuccessHandler(team => {
+teamMembers = team || [];
+populateLoginDropdown();
+}).getTeamMembers();
+
+setInterval(refreshData, 15000);
+};
+
+function getUserDisplayName(val) {
+if (!val) return '—';
+const cleanVal = String(val).trim().toLowerCase();
+const match = teamMembers.find(m => m.email.toLowerCase() === cleanVal || m.name.toLowerCase() === cleanVal);
+return match ? match.name : val;
+}
+
+function normalizePriority(prio) {
+if (!prio) return 'P4';
+const clean = String(prio).trim().toUpperCase();
+if (['P1', 'P2', 'P3', 'P4', 'RESOLVED'].includes(clean)) return clean;
+return 'P4';
+}
+
+function populateLoginDropdown() {
+const select = document.getElementById('login-user-select');
+select.innerHTML = '<option value="">-- Choose Profile --</option>';
+teamMembers.forEach(m => {
+const opt = document.createElement('option');
+opt.value = m.email;
+opt.innerText = `${m.name} (${m.category} - ${m.title})`;
+select.appendChild(opt);
+});
+}
+
+function toggleLoginPasswordField() {
+const email = document.getElementById('login-user-select').value.toLowerCase();
+const matched = teamMembers.find(m => m.email.toLowerCase() === email);
+const isAdminAccount = !!matched && matched.category === 'Admin';
+document.getElementById('login-password-row').classList.toggle('hidden', !isAdminAccount);
+document.getElementById('login-error-msg').classList.add('hidden');
+document.getElementById('login-password-input').value = '';
+}
+
+function executeLogin(e) {
+e.preventDefault();
+const selectedEmail = document.getElementById('login-user-select').value.toLowerCase();
+if (!selectedEmail) return;
+
+const matched = teamMembers.find(m => m.email.toLowerCase() === selectedEmail);
+if (!matched) return;
+
+const errorMsg = document.getElementById('login-error-msg');
+errorMsg.classList.add('hidden');
+
+const completeLogin = () => {
+currentUser = matched;
+document.getElementById('login-overlay').classList.add('hidden');
+document.getElementById('app-container').classList.remove('hidden');
+document.getElementById('header-user-name').innerText = currentUser.name;
+
+applyUserPermissions();
+refreshData();
+showToast(`Logged in as: ${currentUser.name}`);
+};
+
+if (matched.category === 'Admin') {
+// Admin accounts require server-side password verification - the
+// password itself never gets stored or checked in the browser.
+const passwordAttempt = document.getElementById('login-password-input').value;
+const submitBtn = document.getElementById('login-submit-btn');
+submitBtn.disabled = true;
+
+google.script.run.withFailureHandler(err => {
+submitBtn.disabled = false;
+errorMsg.innerText = (err && err.message) ? err.message : "Incorrect password.";
+errorMsg.classList.remove('hidden');
+document.getElementById('login-password-input').value = '';
+document.getElementById('login-password-input').focus();
+}).withSuccessHandler(() => {
+submitBtn.disabled = false;
+completeLogin();
+}).verifyAdminPassword(matched.email, passwordAttempt);
+} else {
+completeLogin();
+}
+}
+
+function logoutToLogin() {
+currentUser = null;
+allQuestions = [];
+selectedQueueRows.clear();
+// Reset all search/filter inputs so the next login starts clean too.
+['coord-search', 'answered-search', 'all-search', 'sup-search'].forEach(id => {
+const el = document.getElementById(id);
+if (el) el.value = '';
+});
+['coord-prio-filter', 'answered-read-filter', 'all-type-filter', 'sup-scope-filter'].forEach(id => {
+const el = document.getElementById(id);
+if (el) el.selectedIndex = 0;
+});
+['coord-date-filter', 'answered-date-filter'].forEach(id => {
+const el = document.getElementById(id);
+if (el) el.value = '';
+});
+const selectAll = document.getElementById('sup-select-all');
+if (selectAll) selectAll.checked = false;
+
+document.getElementById('app-container').classList.add('hidden');
+document.getElementById('login-overlay').classList.remove('hidden');
+document.getElementById('login-user-select').value = '';
+document.getElementById('login-password-row').classList.add('hidden');
+document.getElementById('login-password-input').value = '';
+document.getElementById('login-error-msg').classList.add('hidden');
+}
+
+// Client-side role check only controls what's SHOWN. Every privileged
+// action is re-checked on the server against the Team Setup sheet, since
+// this login is a dropdown picker, not real authentication.
+function isSupportUser(user) {
+if (!user) return false;
+return user.category === 'Support' || user.category === 'Admin' || ['Manager', 'Assistant Manager', 'Supervisor', 'Escalation Supervisor'].includes(user.title);
+}
+
+// Admin is a distinct, higher-trust tier: only Admins may edit or
+// permanently delete question/answer records. Server re-checks this too.
+function isAdminUser(user) {
+return !!user && user.category === 'Admin';
+}
+
+// Single source of truth for which tabs a user may see - both
+// applyUserPermissions() and switchTab() defer to this, so there is
+// never a second mechanism (like inline styles) that can go stale.
+function getAllowedTabs(user) {
+const base = ['coordinator', 'answered', 'all-tickets'];
+return isSupportUser(user) ? base.concat(['supervisor', 'reporting', 'team']) : base;
+}
+
+function applyUserPermissions() {
+const isSupport = isSupportUser(currentUser);
+
+const roleTag = document.getElementById('user-role-tag');
+roleTag.innerText = `${currentUser.category} - ${currentUser.title}`;
+roleTag.className = `px-2 py-0.5 rounded text-[10px] font-black uppercase ${isSupport ? 'bg-amber-400 text-slate-950' : 'bg-emerald-400 text-slate-950'}`;
+
+// Wipe any inline display style left over from a previous session before
+// switchTab() re-applies the class-based hidden/visible state below.
+['tab-supervisor', 'tab-reporting', 'tab-team'].forEach(id => {
+const btn = document.getElementById(id);
+if (btn) btn.style.display = '';
+});
+
+const adminTh = document.getElementById('all-admin-th');
+if (adminTh) adminTh.classList.toggle('hidden', !isAdminUser(currentUser));
+
+document.getElementById('log-filter-user').innerText = currentUser.name;
+switchTab(isSupport ? 'supervisor' : 'coordinator');
+}
+
+function refreshData() {
+if (!currentUser) return;
+
+google.script.run.withFailureHandler(err => {
+showToast("Error loading data: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(data => {
+allQuestions = data || [];
+updateUnreadTicker();
+renderCoordinatorQuestions();
+renderAnsweredTab();
+renderAllTickets();
+renderSupervisorQueue();
+renderReporting();
+}).getQuestionsData(currentUser.email);
+
+google.script.run.withSuccessHandler(data => {
+teamMembers = data || [];
+renderTeamTable();
+populateAssigneeDropdown();
+}).getTeamMembers();
+}
+
+function updateUnreadTicker() {
+const ticker = document.getElementById('unread-ticker');
+const uEmail = (currentUser.email || '').toLowerCase();
+const uName = (currentUser.name || '').toLowerCase();
+
+const unreadCount = allQuestions.filter(q => {
+const qAsked = (q.askedBy || '').toLowerCase();
+const isOwner = qAsked === uEmail || qAsked === uName || qAsked.includes(uEmail);
+return q.sheet === 'Answered' && !q.isRead && (isOwner || currentUser.category === 'Support');
+}).length;
+
+if (unreadCount > 0) {
+ticker.innerText = unreadCount;
+ticker.classList.remove('hidden');
+} else {
+ticker.classList.add('hidden');
+}
+}
+
+function switchTab(tab) {
+const allowed = getAllowedTabs(currentUser);
+if (allowed.indexOf(tab) === -1) tab = 'coordinator';
+
+['coordinator', 'answered', 'all-tickets', 'supervisor', 'reporting', 'team'].forEach(t => {
+const el = document.getElementById('view-' + t);
+const btn = document.getElementById('tab-' + t);
+if (el) el.classList.add('hidden');
+if (!btn) return;
+
+const isAllowed = allowed.indexOf(t) !== -1;
+const baseClass = t === 'answered'
+? 'py-3 text-slate-400 hover:text-white flex items-center gap-1.5'
+: (t === 'supervisor' ? 'py-3 text-slate-400 hover:text-white flex items-center gap-1.5' : 'py-3 text-slate-400 hover:text-white');
+btn.className = isAllowed ? baseClass : baseClass + ' hidden';
+});
+
+const targetEl = document.getElementById('view-' + tab);
+const targetBtn = document.getElementById('tab-' + tab);
+if (targetEl) targetEl.classList.remove('hidden');
+if (targetBtn) targetBtn.className = 'py-3 text-emerald-400 border-b-2 border-emerald-400 flex items-center gap-1.5 font-bold';
+}
+
+function handleQuestionSubmit(e) {
+e.preventDefault();
+const isUrgent = document.getElementById('inp-urgent').checked;
+
+const payload = {
+question: document.getElementById('inp-question').value,
+eventName: document.getElementById('inp-event').value,
+caseLink: document.getElementById('inp-link').value,
+askedBy: currentUser.name,
+askedByEmail: currentUser.email,
+isUrgent: isUrgent
+};
+
+google.script.run.withSuccessHandler(() => {
+document.getElementById('question-form').reset();
+refreshData();
+showToast(isUrgent ? "URGENT Escalation submitted! Placed as P1 Priority." : "Escalation question submitted successfully!");
+}).submitQuestion(payload);
+}
+
+function renderCoordinatorQuestions() {
+const search = (document.getElementById('coord-search').value || '').toLowerCase();
+const prioFilter = document.getElementById('coord-prio-filter').value;
+const dateFilter = document.getElementById('coord-date-filter').value;
+const body = document.getElementById('coord-table-body');
+if (!body) return;
+body.innerHTML = '';
+
+const uEmail = (currentUser.email || '').toLowerCase();
+const uName = (currentUser.name || '').toLowerCase();
+
+const activeList = allQuestions.filter(q => {
+const qAsked = (q.askedBy || '').toLowerCase();
+const isOwner = qAsked === uEmail || qAsked === uName || qAsked.includes(uEmail);
+const matchesSearch = q.question.toLowerCase().includes(search) || q.eventName.toLowerCase().includes(search);
+const matchesPrio = prioFilter === 'ALL' || q.priority === prioFilter;
+let matchesDate = true;
+if (dateFilter && q.created) matchesDate = q.created.startsWith(dateFilter);
+
+return q.sheet === 'Questions Tracker' && (isOwner || currentUser.category === 'Support') && matchesSearch && matchesPrio && matchesDate;
+});
+
+if (activeList.length === 0) {
+body.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No active unanswered questions found.</td></tr>`;
+return;
+}
+
+activeList.forEach(q => {
+const tr = document.createElement('tr');
+tr.className = 'hover:bg-slate-50 transition';
+const createdDate = q.created ? new Date(q.created).toLocaleDateString([], {month:'numeric', day:'numeric', hour: '2-digit', minute:'2-digit'}) : '—';
+const cleanPrio = normalizePriority(q.priority);
+
+tr.innerHTML = `
+<td class="p-3"><span class="inline-block px-1.5 py-0.5 text-[10px] font-black rounded ${cleanPrio === 'P1' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700'}">${cleanPrio}</span></td>
+<td class="p-3 font-mono text-[11px] text-slate-500">${createdDate}</td>
+<td class="p-3 font-bold text-slate-800 truncate">${q.eventName}</td>
+<td class="p-3 text-slate-700 truncate" title="${q.question}">${q.question}</td>
+<td class="p-3 text-slate-700 font-medium truncate">${getUserDisplayName(q.askedBy)}</td>
+<td class="p-3 text-center"><span class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800">Pending</span></td>
+`;
+body.appendChild(tr);
+});
+}
+
+function renderAnsweredTab() {
+const search = (document.getElementById('answered-search').value || '').toLowerCase();
+const readFilter = document.getElementById('answered-read-filter').value;
+const dateFilter = document.getElementById('answered-date-filter').value;
+
+const body = document.getElementById('answered-table-body');
+if (!body) return;
+body.innerHTML = '';
+
+const uEmail = (currentUser.email || '').toLowerCase();
+const uName = (currentUser.name || '').toLowerCase();
+
+const answeredList = allQuestions.filter(q => {
+const qAsked = (q.askedBy || '').toLowerCase();
+const isOwner = qAsked === uEmail || qAsked === uName || qAsked.includes(uEmail);
+const matchesSearch = q.question.toLowerCase().includes(search) || q.eventName.toLowerCase().includes(search) || q.answer.toLowerCase().includes(search);
+let matchesRead = true;
+if (readFilter === 'UNREAD') matchesRead = !q.isRead;
+if (readFilter === 'READ') matchesRead = q.isRead;
+
+let matchesDate = true;
+if (dateFilter && q.answeredDate) matchesDate = q.answeredDate.startsWith(dateFilter);
+
+return q.sheet === 'Answered' && (isOwner || currentUser.category === 'Support') && matchesSearch && matchesRead && matchesDate;
+});
+
+if (answeredList.length === 0) {
+body.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">No answered questions match current filters.</td></tr>`;
+return;
+}
+
+answeredList.forEach(q => {
+const tr = document.createElement('tr');
+tr.className = `hover:bg-slate-100/80 cursor-pointer transition ${!q.isRead ? 'bg-amber-50/60 font-semibold' : ''}`;
+tr.onclick = (e) => {
+if (e.target.tagName !== 'BUTTON') openViewModal(q);
+};
+
+tr.innerHTML = `
+<td class="p-3">
+<span class="px-2 py-0.5 text-[9px] font-black rounded ${q.isRead ? 'bg-slate-200 text-slate-600' : 'bg-red-500 text-white shadow-sm'}">
+${q.isRead ? 'READ' : 'UNREAD'}
+</span>
+</td>
+<td class="p-3 font-bold text-slate-800 truncate">${q.eventName}</td>
+<td class="p-3">
+<div class="text-slate-900 truncate font-semibold">${q.question}</div>
+<div class="text-emerald-700 text-[11px] truncate font-semibold">${q.answer}</div>
+</td>
+<td class="p-3 text-slate-700 font-medium truncate">${getUserDisplayName(q.answeredBy)}</td>
+<td class="p-3 text-center font-mono text-[11px] text-slate-500">${q.turnaroundHours} hrs</td>
+<td class="p-3 text-right">
+<button onclick="toggleRead(${q.rowIndex}, ${!q.isRead})" class="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline">
+${q.isRead ? 'Unread' : 'Read'}
+</button>
+</td>
+`;
+body.appendChild(tr);
+});
+}
+
+function openViewModal(q) {
+activeViewQuestion = q;
+document.getElementById('vmodal-event').innerText = q.eventName;
+document.getElementById('vmodal-asked').innerText = getUserDisplayName(q.askedBy);
+document.getElementById('vmodal-question').innerText = q.question;
+document.getElementById('vmodal-answer').innerText = q.answer || 'No answer recorded.';
+document.getElementById('vmodal-by').innerText = getUserDisplayName(q.answeredBy);
+document.getElementById('vmodal-speed').innerText = `${q.turnaroundHours} Hours`;
+
+const linkEl = document.getElementById('vmodal-link');
+if (q.caseLink) {
+linkEl.href = q.caseLink;
+linkEl.classList.remove('hidden');
+} else {
+linkEl.classList.add('hidden');
+}
+
+updateModalReadUI(q.isRead);
+document.getElementById('view-modal').classList.remove('hidden');
+
+if (!q.isRead) toggleRead(q.rowIndex, true);
+}
+
+function updateModalReadUI(isRead) {
+const badge = document.getElementById('vmodal-read-badge');
+const btn = document.getElementById('vmodal-toggle-btn');
+if (isRead) {
+badge.innerText = "READ";
+badge.className = "text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-200 text-slate-700";
+btn.innerText = "Mark as Unread";
+} else {
+badge.innerText = "UNREAD";
+badge.className = "text-[10px] font-black uppercase px-2 py-0.5 rounded bg-red-500 text-white";
+btn.innerText = "Mark as Read";
+}
+}
+
+function toggleReadModal() {
+if (!activeViewQuestion) return;
+const newStatus = !activeViewQuestion.isRead;
+activeViewQuestion.isRead = newStatus;
+updateModalReadUI(newStatus);
+toggleRead(activeViewQuestion.rowIndex, newStatus);
+}
+
+function closeViewModal() {
+activeViewQuestion = null;
+document.getElementById('view-modal').classList.add('hidden');
+}
+
+function toggleRead(rowIndex, newStatus) {
+google.script.run.withSuccessHandler(() => {
+refreshData();
+}).toggleReadStatus(rowIndex, newStatus, currentUser.email);
+}
+
+// GLOBAL FEED WITH FILTER (ALL / QUESTIONS / ANSWERED)
+function renderAllTickets() {
+const search = (document.getElementById('all-search').value || '').toLowerCase();
+const typeFilter = document.getElementById('all-type-filter').value;
+const body = document.getElementById('all-tickets-table-body');
+if (!body) return;
+body.innerHTML = '';
+
+const filtered = allQuestions.filter(q => {
+const matchesSearch = q.question.toLowerCase().includes(search) ||
+q.eventName.toLowerCase().includes(search) ||
+getUserDisplayName(q.askedBy).toLowerCase().includes(search);
+let matchesType = true;
+if (typeFilter === 'QUESTIONS') matchesType = (q.sheet === 'Questions Tracker');
+if (typeFilter === 'ANSWERED') matchesType = (q.sheet === 'Answered');
+
+return matchesSearch && matchesType;
+});
+
+if (filtered.length === 0) {
+body.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">No ticket records found.</td></tr>`;
+return;
+}
+
+const isAdmin = isAdminUser(currentUser);
+
+filtered.forEach(q => {
+const tr = document.createElement('tr');
+tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+const cleanPrio = normalizePriority(q.priority);
+const prioClass = cleanPrio === 'P1' ? 'bg-red-100 text-red-800' :
+cleanPrio === 'P2' ? 'bg-orange-100 text-orange-800' :
+cleanPrio === 'P3' ? 'bg-yellow-100 text-yellow-800' :
+cleanPrio === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' :
+'bg-slate-100 text-slate-700';
+
+const cleanStatus = (q.sheet === 'Answered' || q.status === 'Answered') ? 'Answered' : 'Open';
+const statusClass = cleanStatus === 'Answered' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+
+tr.innerHTML = `
+<td class="p-3">
+<span class="inline-block px-2 py-0.5 text-[10px] font-black rounded whitespace-nowrap ${prioClass}">
+${cleanPrio}
+</span>
+</td>
+<td class="p-3 font-bold text-slate-800 truncate">${q.eventName || '—'}</td>
+<td class="p-3 text-slate-700 truncate" title="${q.question}">${q.question || '—'}</td>
+<td class="p-3 text-slate-700 font-medium truncate">${getUserDisplayName(q.askedBy)}</td>
+<td class="p-3 text-center">
+${q.caseLink ? `<a href="${q.caseLink}" target="_blank" class="text-blue-600 font-bold underline hover:text-blue-800">Link</a>` : '—'}
+</td>
+<td class="p-3 text-center">
+<span class="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded whitespace-nowrap ${statusClass}">
+${cleanStatus}
+</span>
+</td>
+<td class="p-3 text-right ${isAdmin ? '' : 'hidden'}">
+<div class="flex justify-end gap-2">
+<button onclick="openEditModalByKey('${q.sheet}', ${q.rowIndex})" class="text-blue-600 font-bold underline text-[11px] hover:text-blue-800">Edit</button>
+<button onclick="deleteRecord('${q.sheet}', ${q.rowIndex})" class="text-red-600 font-bold underline text-[11px] hover:text-red-800">Delete</button>
+</div>
+</td>
+`;
+body.appendChild(tr);
+});
+}
+
+// ---- Admin: edit / permanently delete a question or answer record ----
+let activeEditRecord = null;
+
+function openEditModalByKey(sheet, rowIndex) {
+const q = allQuestions.find(r => r.sheet === sheet && r.rowIndex === rowIndex);
+if (q) openEditModal(q);
+}
+
+function openEditModal(q) {
+if (!isAdminUser(currentUser)) {
+alert("Only Admin accounts can edit or delete records.");
+return;
+}
+activeEditRecord = q;
+document.getElementById('edit-sheet').value = q.sheet;
+document.getElementById('edit-row-index').value = q.rowIndex;
+document.getElementById('edit-event-name').value = q.eventName || '';
+document.getElementById('edit-question').value = q.question || '';
+document.getElementById('edit-case-link').value = q.caseLink || '';
+document.getElementById('edit-answer').value = q.answer || '';
+
+const isAnswered = q.sheet === 'Answered';
+document.getElementById('edit-answer-row').classList.toggle('hidden', !isAnswered);
+document.getElementById('edit-urgent-row').classList.toggle('hidden', isAnswered);
+document.getElementById('edit-urgent').checked = q.priority === 'P1';
+
+document.getElementById('admin-edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+activeEditRecord = null;
+document.getElementById('admin-edit-modal').classList.add('hidden');
+}
+
+function submitEditModal() {
+if (!activeEditRecord || !isAdminUser(currentUser)) return;
+
+const sheet = document.getElementById('edit-sheet').value;
+const rowIndex = Number(document.getElementById('edit-row-index').value);
+const isAnswered = sheet === 'Answered';
+
+const updates = {
+eventName: document.getElementById('edit-event-name').value,
+question: document.getElementById('edit-question').value,
+caseLink: document.getElementById('edit-case-link').value
+};
+if (isAnswered) {
+updates.answer = document.getElementById('edit-answer').value;
+} else {
+updates.isUrgent = document.getElementById('edit-urgent').checked;
+}
+
+const fnName = isAnswered ? 'updateAnswer' : 'updateQuestion';
+google.script.run.withFailureHandler(err => {
+showToast("Could not save changes: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(() => {
+closeEditModal();
+refreshData();
+showToast("Record updated successfully!");
+})[fnName](rowIndex, updates, currentUser.email);
+}
+
+function submitDeleteFromEditModal() {
+if (!activeEditRecord) return;
+deleteRecord(activeEditRecord.sheet, activeEditRecord.rowIndex);
+}
+
+function deleteRecord(sheet, rowIndex) {
+if (!isAdminUser(currentUser)) {
+alert("Only Admin accounts can delete records.");
+return;
+}
+if (!confirm("This will permanently delete this record from the connected Google Sheet. This cannot be undone. Continue?")) return;
+
+const fnName = sheet === 'Answered' ? 'deleteAnswer' : 'deleteQuestion';
+google.script.run.withFailureHandler(err => {
+showToast("Could not delete: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(() => {
+closeEditModal();
+refreshData();
+showToast("Record permanently deleted.");
+})[fnName](rowIndex, currentUser.email);
+}
+
+let selectedQueueRows = new Set();
+let lastRenderedQueueRows = [];
+
+function renderSupervisorQueue() {
+const search = (document.getElementById('sup-search').value || '').toLowerCase();
+const scopeFilterEl = document.getElementById('sup-scope-filter');
+const scope = scopeFilterEl ? scopeFilterEl.value : 'MINE';
+const queue = document.getElementById('supervisor-queue');
+if (!queue) return;
+queue.innerHTML = '';
+
+const uEmail = (currentUser.email || '').toLowerCase();
+
+let pending = allQuestions.filter(q => q.sheet === 'Questions Tracker' && q.status === 'Open' && (q.question.toLowerCase().includes(search) || q.eventName.toLowerCase().includes(search)));
+
+// "My Queue" = unassigned tickets (visible to everyone to pick up) + tickets specifically assigned to me.
+// "All Open Tickets" shows everything, including tasks assigned to other supervisors, for oversight/reassignment.
+if (scope === 'MINE') {
+pending = pending.filter(q => !q.assignedTo || q.assignedTo === uEmail);
+}
+
+// SORT QUEUE: P1 (URGENT) ALWAYS SHOWS FIRST
+pending.sort((a, b) => {
+if (a.priority === 'P1' && b.priority !== 'P1') return -1;
+if (a.priority !== 'P1' && b.priority === 'P1') return 1;
+return parseFloat(b.hoursElapsed) - parseFloat(a.hoursElapsed);
+});
+
+// Drop selections for rows that are no longer in view (answered / filtered out / reassigned away).
+lastRenderedQueueRows = pending.map(q => q.rowIndex);
+selectedQueueRows.forEach(r => { if (lastRenderedQueueRows.indexOf(r) === -1) selectedQueueRows.delete(r); });
+
+const selectAllBox = document.getElementById('sup-select-all');
+if (selectAllBox) selectAllBox.checked = pending.length > 0 && pending.every(q => selectedQueueRows.has(q.rowIndex));
+
+if (pending.length === 0) {
+queue.innerHTML = `<div class="p-8 text-center text-slate-400 bg-slate-50 rounded-xl">No pending unanswered questions in queue.</div>`;
+updateBulkToolbar();
+updatePendingTicker();
+return;
+}
+
+pending.forEach(q => {
+const card = document.createElement('div');
+const isUrgentPrio = q.priority === 'P1';
+const isChecked = selectedQueueRows.has(q.rowIndex);
+const assignedToOther = q.assignedTo && q.assignedTo !== uEmail;
+const assignedToMe = q.assignedTo && q.assignedTo === uEmail;
+card.className = `p-4 rounded-xl border ${isUrgentPrio ? 'border-red-300 bg-red-50/40' : 'border-slate-200 bg-white'} ${isChecked ? 'ring-2 ring-slate-800' : ''} hover:border-slate-400 shadow-sm flex items-center justify-between cursor-pointer transition`;
+card.onclick = (e) => { if (e.target.type !== 'checkbox') openAnswerModal(q); };
+
+const assignBadge = assignedToMe
+? `<span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 ml-2">Assigned to me</span>`
+: assignedToOther
+? `<span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 ml-2">Assigned: ${getUserDisplayName(q.assignedTo)}</span>`
+: '';
+
+card.innerHTML = `
+<div class="flex items-center space-x-3 truncate">
+<input type="checkbox" class="w-4 h-4 rounded border-slate-300 accent-slate-800 shrink-0" ${isChecked ? 'checked' : ''} onchange="toggleQueueSelection(${q.rowIndex}, this.checked)">
+<span class="text-[10px] font-black uppercase px-2 py-1 rounded ${isUrgentPrio ? 'bg-red-600 text-white shadow-sm' : 'bg-amber-100 text-amber-800'}">${q.priority}</span>
+<div class="truncate">
+<h4 class="font-bold text-xs text-slate-800 truncate flex items-center">${q.eventName} <span class="text-slate-400 font-normal ml-1">(${q.hoursElapsed} hrs waiting)</span>${assignBadge}</h4>
+<p class="text-xs text-slate-600 truncate">${q.question}</p>
+</div>
+</div>
+<div class="flex items-center space-x-3 shrink-0">
+<span class="text-[11px] text-slate-600 font-bold">${getUserDisplayName(q.askedBy)}</span>
+<button class="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800">Open &rarr;</button>
+</div>
+`;
+queue.appendChild(card);
+});
+
+updateBulkToolbar();
+updatePendingTicker();
+}
+
+function toggleQueueSelection(rowIndex, checked) {
+if (checked) selectedQueueRows.add(rowIndex); else selectedQueueRows.delete(rowIndex);
+const selectAllBox = document.getElementById('sup-select-all');
+if (selectAllBox) selectAllBox.checked = lastRenderedQueueRows.length > 0 && lastRenderedQueueRows.every(r => selectedQueueRows.has(r));
+updateBulkToolbar();
+}
+
+function toggleSelectAllQueue(checked) {
+if (checked) lastRenderedQueueRows.forEach(r => selectedQueueRows.add(r));
+else selectedQueueRows.clear();
+renderSupervisorQueue();
+}
+
+function clearQueueSelection() {
+selectedQueueRows.clear();
+renderSupervisorQueue();
+}
+
+function updateBulkToolbar() {
+const toolbar = document.getElementById('sup-bulk-toolbar');
+const countEl = document.getElementById('sup-bulk-count');
+if (!toolbar || !countEl) return;
+const n = selectedQueueRows.size;
+countEl.innerText = `${n} selected`;
+toolbar.classList.toggle('hidden', n === 0);
+toolbar.classList.toggle('flex', n > 0);
+if (n > 0) populateBulkAssigneeDropdown();
+}
+
+function populateBulkAssigneeDropdown() {
+const select = document.getElementById('sup-bulk-assignee');
+if (!select) return;
+const prevValue = select.value;
+select.innerHTML = '<option value="">-- Assign to --</option>';
+teamMembers
+.filter(m => m.status === 'active' && (m.category === 'Support' || m.category === 'Admin' || ['Manager', 'Assistant Manager', 'Supervisor', 'Escalation Supervisor'].includes(m.title)))
+.forEach(m => {
+const opt = document.createElement('option');
+opt.value = m.email;
+opt.innerText = (currentUser && m.email === currentUser.email) ? `${m.name} (Me)` : m.name;
+select.appendChild(opt);
+});
+if (prevValue) select.value = prevValue;
+}
+
+function submitBulkAssign() {
+const assigneeEmail = document.getElementById('sup-bulk-assignee').value;
+if (!assigneeEmail) {
+alert("Choose who to assign the selected questions to.");
+return;
+}
+if (selectedQueueRows.size === 0) return;
+
+google.script.run.withFailureHandler(err => {
+showToast("Could not assign: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(res => {
+selectedQueueRows.clear();
+refreshData();
+showToast(`Assigned ${res && res.updated ? res.updated : ''} question(s) successfully!`);
+}).assignQuestionsBulk(Array.from(selectedQueueRows), assigneeEmail, currentUser.email);
+}
+
+function updatePendingTicker() {
+const ticker = document.getElementById('pending-ticker');
+if (!ticker) return;
+const count = allQuestions.filter(q => q.sheet === 'Questions Tracker' && q.status === 'Open').length;
+if (count > 0) {
+ticker.innerText = count;
+ticker.classList.remove('hidden');
+} else {
+ticker.classList.add('hidden');
+}
+}
+
+function openAnswerModal(q) {
+activeModalRowIndex = q.rowIndex;
+document.getElementById('modal-priority-badge').innerText = `${q.priority} Priority - ${q.hoursElapsed} hrs waiting`;
+document.getElementById('modal-event-name').innerText = q.eventName;
+document.getElementById('modal-asked-by').innerText = getUserDisplayName(q.askedBy);
+document.getElementById('modal-question-text').innerText = q.question;
+const caseLinkEl = document.getElementById('modal-case-link');
+if (q.caseLink) {
+caseLinkEl.href = q.caseLink;
+caseLinkEl.innerText = q.caseLink;
+document.getElementById('modal-link-container').classList.remove('hidden');
+} else {
+document.getElementById('modal-link-container').classList.add('hidden');
+}
+
+document.getElementById('modal-answer-input').value = '';
+populateAssigneeDropdown();
+document.getElementById('answer-modal').classList.remove('hidden');
+}
+
+function closeAnswerModal() {
+activeModalRowIndex = null;
+document.getElementById('answer-modal').classList.add('hidden');
+}
+
+function submitModalAnswer() {
+if (!isSupportUser(currentUser)) {
+alert("Only Support and Manager roles are authorized to answer questions.");
+return;
+}
+
+const ans = document.getElementById('modal-answer-input').value;
+if (!ans || !ans.trim()) {
+alert("Please enter a valid answer before submitting.");
+return;
+}
+
+google.script.run.withFailureHandler(err => {
+showToast("Could not submit answer: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(() => {
+closeAnswerModal();
+refreshData();
+showToast("Answer submitted successfully!");
+}).answerQuestion(activeModalRowIndex, ans, currentUser.email, currentUser.name);
+}
+
+// ---- Assign to another supervisor ----
+function populateAssigneeDropdown() {
+const select = document.getElementById('modal-assignee-select');
+if (!select) return;
+const isSupport = isSupportUser(currentUser);
+select.innerHTML = '<option value="">-- Choose supervisor --</option>';
+teamMembers
+.filter(m => m.status === 'active' && (m.category === 'Support' || m.category === 'Admin' || ['Manager', 'Assistant Manager', 'Supervisor', 'Escalation Supervisor'].includes(m.title)))
+.forEach(m => {
+const opt = document.createElement('option');
+opt.value = m.email;
+opt.innerText = (currentUser && m.email === currentUser.email) ? `${m.name} (Me)` : m.name;
+select.appendChild(opt);
+});
+const assignRow = document.getElementById('modal-assign-row');
+if (assignRow) assignRow.classList.toggle('hidden', !isSupport);
+}
+
+function submitModalAssign() {
+if (!isSupportUser(currentUser)) {
+alert("Only Support and Supervisor roles are authorized to assign questions.");
+return;
+}
+const assigneeEmail = document.getElementById('modal-assignee-select').value;
+if (!assigneeEmail) {
+alert("Please choose a supervisor to assign this question to.");
+return;
+}
+
+google.script.run.withFailureHandler(err => {
+showToast("Could not assign: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(() => {
+closeAnswerModal();
+refreshData();
+showToast("Question assigned successfully!");
+}).assignQuestion(activeModalRowIndex, assigneeEmail, currentUser.email);
+}
+
+function renderReporting() {
+const unanswered = allQuestions.filter(q => q.sheet === 'Questions Tracker');
+const answered = allQuestions.filter(q => q.sheet === 'Answered');
+const statU = document.getElementById('stat-unanswered');
+const statA = document.getElementById('stat-answered');
+if (statU) statU.innerText = unanswered.length;
+if (statA) statA.innerText = answered.length;
+filterReport('unanswered');
+}
+
+function filterReport(type) {
+const body = document.getElementById('report-table-body');
+if (!body) return;
+body.innerHTML = '';
+const records = type === 'unanswered' ? allQuestions.filter(q => q.sheet === 'Questions Tracker') : allQuestions.filter(q => q.sheet === 'Answered');
+const title = document.getElementById('report-detail-title');
+if (title) title.innerText = type === 'unanswered' ? 'Unanswered Questions Queue' : 'Answered Questions Log';
+
+records.forEach(r => {
+const tr = document.createElement('tr');
+tr.className = 'hover:bg-slate-50';
+tr.innerHTML = `
+<td class="p-3 truncate">${r.question}</td>
+<td class="p-3 truncate font-medium">${getUserDisplayName(r.askedBy)}</td>
+<td class="p-3 truncate font-medium">${getUserDisplayName(r.answeredBy || r.assignedTo)}</td>
+<td class="p-3 text-center font-bold">${r.status}</td>
+`;
+body.appendChild(tr);
+});
+}
+
+function renderTeamTable() {
+const body = document.getElementById('team-table-body');
+if (!body) return;
+body.innerHTML = '';
+teamMembers.forEach(m => {
+const tr = document.createElement('tr');
+tr.className = 'hover:bg-slate-50';
+tr.innerHTML = `
+<td class="p-3 font-bold text-slate-800">${m.name}</td>
+<td class="p-3 text-slate-600">${m.title}</td>
+<td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${m.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}">${m.status}</span></td>
+<td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${m.category === 'Support' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">${m.category}</span></td>
+<td class="p-3 font-mono text-slate-500 truncate">${m.email}</td>
+<td class="p-3 text-right space-x-2">
+<button onclick="editTeam(${m.rowIndex})" class="text-blue-600 font-bold underline text-xs">Edit</button>
+<button onclick="deleteTeam(${m.rowIndex})" class="text-red-600 font-bold underline text-xs">Delete</button>
+</td>
+`;
+body.appendChild(tr);
+});
+}
+
+function toggleTeamPasswordField() {
+const isAdminCategory = document.getElementById('team-category').value === 'Admin';
+document.getElementById('team-password-row').classList.toggle('hidden', !isAdminCategory);
+}
+
+function handleTeamSubmit(e) {
+e.preventDefault();
+const member = {
+rowIndex: document.getElementById('team-row-index').value || null,
+name: document.getElementById('team-name').value,
+title: document.getElementById('team-title').value,
+status: document.getElementById('team-status').value,
+category: document.getElementById('team-category').value,
+email: document.getElementById('team-email').value,
+password: document.getElementById('team-password').value || null
+};
+
+google.script.run.withFailureHandler(err => {
+showToast("Could not save: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(() => {
+document.getElementById('team-form').reset();
+document.getElementById('team-row-index').value = '';
+toggleTeamPasswordField();
+refreshData();
+showToast("Team roster updated.");
+}).saveTeamMember(member, currentUser.email);
+}
+
+function editTeam(rowIndex) {
+const m = teamMembers.find(item => item.rowIndex === rowIndex);
+if (!m) return;
+document.getElementById('team-row-index').value = m.rowIndex;
+document.getElementById('team-name').value = m.name;
+document.getElementById('team-title').value = m.title;
+document.getElementById('team-status').value = m.status;
+document.getElementById('team-category').value = m.category;
+document.getElementById('team-email').value = m.email;
+document.getElementById('team-password').value = ''; // never pre-filled - server never sends it back
+toggleTeamPasswordField();
+}
+
+function deleteTeam(rowIndex) {
+if (confirm("Delete this team member?")) {
+google.script.run.withFailureHandler(err => {
+showToast("Could not delete: " + (err && err.message ? err.message : err));
+}).withSuccessHandler(() => {
+refreshData();
+showToast("Member deleted.");
+}).deleteTeamMember(rowIndex, currentUser.email);
+}
+}
+
+function showToast(msg) {
+const container = document.getElementById('toast-container');
+const toast = document.createElement('div');
+toast.className = 'bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs flex justify-between items-center gap-4 border-l-4 border-emerald-500';
+toast.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white font-bold">✕</button>`;
+container.appendChild(toast);
+setTimeout(() => toast.remove(), 4000);
+}
+</script>
+</body>
+</html>
