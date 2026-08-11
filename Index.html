@@ -80,8 +80,8 @@
         <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
             <div>
-              <h2 class="text-xs font-bold text-slate-800">Assigned Tasks (CST Shift Schedule)</h2>
-              <p class="text-[10px] text-slate-400">Tasks assigned specifically to you.</p>
+              <h2 class="text-xs font-bold text-slate-800">My Assigned Tasks</h2>
+              <p class="text-[10px] text-slate-400">All active tasks explicitly assigned to you.</p>
             </div>
             
             <div class="flex flex-wrap items-center gap-2">
@@ -507,6 +507,12 @@
 
         <div>
           <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Assign To</label>
+          <div class="flex flex-wrap gap-1 mb-1.5">
+            <button type="button" onclick="assignByTitle('Coordinator')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title Coordinator">👥 Assign to Coordinators</button>
+            <button type="button" onclick="assignByTitle('Sr. Coordinator')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title Sr. Coordinator">Assign to Sr. Coordinators</button>
+            <button type="button" onclick="assignByTitle('CS Supervisor')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title CS Supervisor">Assign to CS Supervisors</button>
+            <button type="button" onclick="assignByTitle('Escalation Supervisor')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title Escalation Supervisor">Assign to Escalation Supervisors</button>
+          </div>
           <div id="taskAssigneesList" class="max-h-28 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1"></div>
         </div>
 
@@ -1097,24 +1103,21 @@
       function renderAllTaskViews(tasks) {
         masterTaskList = tasks || [];
         const activeUser = selectedUser ? selectedUser.name : '';
-        const activeMember = memberList.find(m => m.name === activeUser);
-
-        const todayCstDay = getTodayCstDay();
-        const isScheduledToday = activeMember ? activeMember.workingDays.includes(todayCstDay) : true;
 
         const myCompletionFilter = document.getElementById('myTasksCompletionFilter') ? document.getElementById('myTasksCompletionFilter').value : 'pending';
         const mySortOption = document.getElementById('myTasksSortOption') ? document.getElementById('myTasksSortOption').value : 'name';
 
         const myTasksTbody = document.getElementById('myTaskListTable');
-        if (!isScheduledToday) {
-          const configuredDays = activeMember && activeMember.workingDays.length ? activeMember.workingDays.join(', ') : 'none set';
-          myTasksTbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-xs text-amber-600 font-medium">You are not scheduled on CST shift today (${todayCstDay}).<br><span class="font-normal text-slate-400">Your working days: ${configuredDays}. If this looks wrong, check your entry on the Team Setup tab.</span></td></tr>`;
-        } else {
-          let myFiltered = masterTaskList.filter(t => {
-            if (!t.isActive) return false;
-            if (!t.isScheduledToday) return false;
-            return t.assignedTo.includes(activeUser);
-          });
+
+        // "My Tasks" always shows the logged-in user's full workload: every ACTIVE
+        // task explicitly assigned to them, regardless of which day it is scheduled
+        // on. Tasks with no assignee are never listed here — they aren't assigned to
+        // anyone, so they stay invisible in every user's My Tasks until someone is
+        // assigned to work on them.
+        let myFiltered = masterTaskList.filter(t => {
+          if (!t.isActive) return false;
+          return t.assignedTo.includes(activeUser);
+        });
 
           // Enrich with derived per-user completion state. For single-assignee tasks
           // (the vast majority) this simply mirrors the existing shared "completed"
@@ -1155,7 +1158,7 @@
           }
 
           if (myFiltered.length === 0) {
-            myTasksTbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs text-slate-400">No matching tasks scheduled for your shift today.</td></tr>';
+            myTasksTbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs text-slate-400">No tasks assigned to you match the current filter.</td></tr>';
           } else if (groupState.myTasks) {
             myTasksTbody.innerHTML = groupTasksByDashboard(myFiltered).map(([label, groupTasks]) => `
               <tr class="group-header-row"><td colspan="6" class="px-2">🗂️ ${label} <span class="normal-case font-medium text-indigo-400">(${groupTasks.length})</span></td></tr>
@@ -1164,7 +1167,6 @@
           } else {
             myTasksTbody.innerHTML = myFiltered.map(t => renderMyTaskRow(t)).join('');
           }
-        }
 
         renderWeeklyCalendarView();
 
@@ -1695,6 +1697,21 @@
         document.querySelectorAll('.rec-day').forEach(cb => {
           cb.checked = mergedDays.has(cb.value);
         });
+      }
+
+      // Quick-assign helpers for the Add/Edit Task modal: checks the checkbox of
+      // every team member whose Title matches the given one, so a whole role group
+      // (Coordinators, Sr. Coordinators, CS Supervisors, Escalation Supervisors)
+      // can be assigned in one click instead of ticking each name individually.
+      function assignByTitle(title) {
+        const targetTitle = String(title || '').trim().toLowerCase();
+        document.querySelectorAll('.task-assignee-cb').forEach(cb => {
+          const member = memberList.find(m => m.name === cb.value);
+          if (member && String(member.title || '').trim().toLowerCase() === targetTitle) {
+            cb.checked = true;
+          }
+        });
+        syncWithAssigneeSchedule();
       }
 
       function toggleRecurringOptions() {
