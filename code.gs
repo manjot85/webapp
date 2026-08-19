@@ -28,6 +28,30 @@ const DAY_ALIASES_ = {
   'sat': 'Sat', 'saturday': 'Sat'
 };
 
+// Coerces a "records completed" value to a non-negative integer. The frontend
+// requires a positive count on every completion, but this guards the backend so
+// a malformed/legacy call can't poison the Log/Personal Status sheets.
+function parseCount_(val) {
+  const n = parseInt(val, 10);
+  return isNaN(n) || n < 0 ? 0 : n;
+}
+
+// Returns the Log sheet, creating it (or back-filling the Records Count header)
+// on first use so both new and legacy spreadsheets get the extra column.
+function getLogSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let logSheet = ss.getSheetByName(LOG_SHEET);
+  if (!logSheet) {
+    logSheet = ss.insertSheet(LOG_SHEET);
+    logSheet.appendRow(["Timestamp", "User", "Sheet Name", "Task", "Status", "Records Count"]);
+  } else if (logSheet.getLastRow() === 0) {
+    logSheet.appendRow(["Timestamp", "User", "Sheet Name", "Task", "Status", "Records Count"]);
+  } else if (logSheet.getRange(1, 6).getValue() !== "Records Count") {
+    logSheet.getRange(1, 6).setValue("Records Count");
+  }
+  return logSheet;
+}
+
 function normalizeDayAbbrev_(raw) {
   const key = (raw || '').toString().trim().toLowerCase();
   if (!key) return '';
@@ -180,6 +204,13 @@ function getAllTasksMaster() {
     const dashboardName = row[10] ? row[10].toString().trim() : '';
     const dashboardLink = row[11] ? row[11].toString().trim() : '';
 
+    // The global "Completed" flag carries no date, but its Last Updated timestamp
+    // does. Reports need to know WHICH day a task was completed for all so a
+    // recurring task finished on Monday shows as pending again on Tuesday.
+    const completedDate = completed && lastUpdatedRaw && !isNaN(lastUpdatedRaw)
+      ? Utilities.formatDate(lastUpdatedRaw, "America/Chicago", "yyyy-MM-dd")
+      : '';
+
     const dueDateRaw = row[12] ? new Date(row[12]) : null;
     const hasDueDate = dueDateRaw && !isNaN(dueDateRaw);
     const dueDate = hasDueDate ? Utilities.formatDate(dueDateRaw, "America/Chicago", "MMM d, yyyy") : '';
@@ -204,7 +235,8 @@ function getAllTasksMaster() {
       dashboardLink: dashboardLink,
       dueDate: dueDate,
       dueDateISO: dueDateISO,
-      isScheduledToday: isScheduledToday
+      isScheduledToday: isScheduledToday,
+      completedDate: completedDate
     };
   }).filter(t => t.taskName !== "");
 }
@@ -407,10 +439,10 @@ function mergeDuplicateTaskGroups(groups) {
   return { success: true, merged: uniqueRowsToDelete.length };
 }
 
-function toggleTaskStatus(row, isChecked, userFullName, userTitle) {
+function toggleTaskStatus(row, isChecked, userFullName, userTitle, recordsCount) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = getTaskMasterSheet();
-  const logSheet = ss.getSheetByName(LOG_SHEET) || ss.insertSheet(LOG_SHEET);
+  const logSheet = getLogSheet_();
   
   const formattedActor = userTitle ? `${userFullName} (${userTitle})` : userFullName;
   const timestamp = new Date();
@@ -420,7 +452,18 @@ function toggleTaskStatus(row, isChecked, userFullName, userTitle) {
   sheet.getRange(row, 8).setValue(timestamp);
   sheet.getRange(row, 9).setValue(formattedActor);
 
-  logSheet.appendRow([timestamp, formattedActor, "Task Master", taskName, isChecked ? "Completed" : "Removed"]);
+  const count = isChecked ? parseCount_(recordsCount) : '';
+  logSheet.appendRow([timestamp, formattedActor, "Task Master", taskName, isChecked ? "Completed" : "Removed", count]);
+
+  // Also record the actor's per-day personal status so per-user record counts
+  // resolve in My Tasks rows and the drilldown even for single-assignee tasks
+  // and team-wide completions. A Pending row on uncheck keeps "latest wins" sane.
+  const personalSheet = getPersonalStatusSheet_();
+  personalSheet.appendRow([
+    getTodayCstDateStr_(), row, taskName, userFullName,
+    isChecked ? "Completed" : "Pending", "", timestamp, count
+  ]);
+
   return { success: true };
 }
 
@@ -464,7 +507,11 @@ function getPersonalStatusSheet_() {
   let sheet = ss.getSheetByName(PERSONAL_STATUS_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(PERSONAL_STATUS_SHEET);
-    sheet.appendRow(["Date", "Task Row", "Task Name", "User Name", "Status", "Note", "Timestamp"]);
+    sheet.appendRow(["Date", "Task Row", "Task Name", "User Name", "Status", "Note", "Timestamp", "Records Count"]);
+  } else if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["Date", "Task Row", "Task Name", "User Name", "Status", "Note", "Timestamp", "Records Count"]);
+  } else if (sheet.getRange(1, 8).getValue() !== "Records Count") {
+    sheet.getRange(1, 8).setValue("Records Count");
   }
   return sheet;
 }
@@ -472,61 +519,210 @@ function getPersonalStatusSheet_() {
 // Records a personal status for one user on one shared task, for today only.
 // status: "Completed" (I finished my copy) | "Pending" (undo/revert) | "Deferred" (hand-off for today)
 // note: optional free text (e.g. who is covering it, for "Deferred")
-function setPersonalTaskStatus(row, userName, userTitle, status, note) {
+// recordsCount: required for "Completed" status — number of records processed.
+function setPersonalTaskStatus(row, userName, userTitle, status, note, recordsCount) {
   const sheet = getPersonalStatusSheet_();
   const taskSheet = getTaskMasterSheet();
   const taskName = taskSheet.getRange(row, 2).getValue();
   const todayStr = getTodayCstDateStr_();
   const timestamp = new Date();
+  const count = status === "Completed" ? parseCount_(recordsCount) : '';
 
-  sheet.appendRow([todayStr, row, taskName, userName, status, note || "", timestamp]);
+  sheet.appendRow([todayStr, row, taskName, userName, status, note || "", timestamp, count]);
 
   // Only "Completed" earns Log-sheet credit (feeds the Progress report's per-user
   // completed count), matching how individual task completions are credited
   // elsewhere. "Pending" (undo) and "Deferred" (hand-off) are functional-only and
   // don't need to show up as report activity.
   if (status === "Completed") {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const logSheet = ss.getSheetByName(LOG_SHEET) || ss.insertSheet(LOG_SHEET);
+    const logSheet = getLogSheet_();
     const formattedActor = userTitle ? `${userName} (${userTitle})` : userName;
-    logSheet.appendRow([timestamp, formattedActor, "Task Master", taskName, "Completed"]);
+    logSheet.appendRow([timestamp, formattedActor, "Task Master", taskName, "Completed", count]);
   }
 
   return { success: true };
 }
 
-// Returns today's latest personal status per (task row, user) as a flat array:
-// [{ row, userName, status, note, timestamp }, ...]
-function getTodayPersonalTaskStatuses() {
+// Returns the latest personal status per (task row, user) for a given CST date
+// as a flat array: [{ row, userName, status, note, recordsCount }, ...]
+function getPersonalStatusesForDate_(dateStr) {
   const sheet = getPersonalStatusSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const todayStr = getTodayCstDateStr_();
-  const data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
 
   const latest = {};
   data.forEach(r => {
-    const dateStr = normalizeDateCell_(r[0]);
-    if (dateStr !== todayStr) return;
+    const dateValue = normalizeDateCell_(r[0]);
+    if (dateValue !== dateStr) return;
 
     const row = r[1];
     const userName = r[3] ? r[3].toString() : "";
     if (!userName) return;
     const status = r[4] ? r[4].toString() : "";
     const note = r[5] ? r[5].toString() : "";
+    const recordsCount = parseCount_(r[7]);
     const ts = r[6] instanceof Date ? r[6].getTime() : new Date(r[6]).getTime();
 
     const key = row + "|" + userName;
     if (!latest[key] || ts >= latest[key].ts) {
-      latest[key] = { row: row, userName: userName, status: status, note: note, ts: ts };
+      latest[key] = { row: row, userName: userName, status: status, note: note, recordsCount: recordsCount, ts: ts };
     }
   });
 
   return Object.keys(latest).map(k => {
     const entry = latest[k];
-    return { row: entry.row, userName: entry.userName, status: entry.status, note: entry.note };
+    return { row: entry.row, userName: entry.userName, status: entry.status, note: entry.note, recordsCount: entry.recordsCount };
   });
+}
+
+// Today's per-user statuses (used by the My Tasks view).
+function getTodayPersonalTaskStatuses() {
+  return getPersonalStatusesForDate_(getTodayCstDateStr_());
+}
+
+// Per-user statuses for an arbitrary report date (yyyy-MM-dd, CST). The Daily
+// Reports tab asks for a specific date so pending/completed can be shown for any
+// shift, not just today's.
+function getDailyReportStatuses(dateStr) {
+  const targetDate = dateStr || getTodayCstDateStr_();
+  return getPersonalStatusesForDate_(targetDate);
+}
+
+// Resolves a Log-sheet "User" cell to a canonical team member name. The app
+// writes "Name (Title)" rows; legacy rows hold emails. Emails are matched by
+// looking for a member's surname in the email's local part, but only a unique
+// match is accepted — unmappable or ambiguous rows are ignored rather than
+// guessed, so attribution stays conservative.
+function resolveLogUser_(rawUser, memberNames) {
+  const value = (rawUser || "").toString().trim();
+  if (!value) return "";
+
+  let name = value;
+  const parenIdx = name.indexOf(" (");
+  if (parenIdx > 0) name = name.substring(0, parenIdx).trim();
+
+  if (memberNames[name]) return name;
+
+  if (name.indexOf("@") > 0) {
+    const local = name.split("@")[0].toLowerCase();
+    const matches = Object.keys(memberNames).filter(n => {
+      const tokens = n.toLowerCase().split(/\s+/);
+      const surname = tokens[tokens.length - 1];
+      return surname.length >= 4 && local.indexOf(surname) !== -1;
+    });
+    return matches.length === 1 ? matches[0] : "";
+  }
+  return "";
+}
+
+// Per-day completion matrix for a date range (yyyy-MM-dd, CST). For each active
+// team member and each date in the range, counts the tasks they logged as
+// "Completed" in the Log sheet (the app's completion log: Timestamp, User, Sheet
+// Name, Task, Status, Records Count) plus the sum of their record counts. The
+// Personal Task Status sheet is merged in as a fallback for per-user entries.
+// Latest entry wins per (date, user, task) so undo/"Removed" entries are
+// respected. Changing the date range changes what this returns, because the
+// report is derived purely from when each completion was logged by whom.
+function getDailyCompletionReport(dateFrom, dateTo) {
+  const fromStr = dateFrom || getTodayCstDateStr_();
+  const toStr = dateTo || getTodayCstDateStr_();
+  const members = getTeamData().members.map(m => ({ name: m.name, title: m.title }));
+  const memberNames = {};
+  members.forEach(m => { memberNames[m.name] = true; });
+
+  // Collapse to the latest status per (date, user, task) across both sheets,
+  // then only count entries whose final status for that day was "Completed".
+  const latest = {};
+  const addEntry = (dateStr, userName, taskName, status, recordsCount, tsMs) => {
+    if (dateStr < fromStr || dateStr > toStr) return;
+    if (!userName || !taskName) return;
+    const key = dateStr + "|" + userName + "|" + taskName;
+    if (!latest[key] || tsMs >= latest[key].ts) {
+      latest[key] = { date: dateStr, userName: userName, taskName: taskName, status: status, recordsCount: recordsCount, ts: tsMs };
+    }
+  };
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1) Log sheet — primary source. Legacy rows carry an email in the User column,
+  // current app rows carry "Name (Title)".
+  const logSheet = ss.getSheetByName(LOG_SHEET);
+  if (logSheet) {
+    const logRows = logSheet.getLastRow();
+    if (logRows >= 2) {
+      const logCols = Math.max(1, Math.min(logSheet.getLastColumn(), 6));
+      logSheet.getRange(2, 1, logRows - 1, logCols).getValues().forEach(r => {
+        const tsRaw = r[0];
+        const tsDate = tsRaw instanceof Date ? tsRaw : new Date(tsRaw);
+        if (!tsDate || isNaN(tsDate.getTime())) return;
+        const dateStr = Utilities.formatDate(tsDate, "America/Chicago", "yyyy-MM-dd");
+        if (dateStr < fromStr || dateStr > toStr) return;
+        addEntry(
+          dateStr,
+          resolveLogUser_(r[1], memberNames),
+          r[3] ? r[3].toString().trim() : "",
+          r[4] ? r[4].toString().trim() : "",
+          logCols >= 6 ? parseCount_(r[5]) : 0,
+          tsDate.getTime()
+        );
+      });
+    }
+  }
+
+  // 2) Personal Task Status sheet — fallback for per-user entries and record
+  // counts that only exist there.
+  const pSheet = ss.getSheetByName(PERSONAL_STATUS_SHEET);
+  if (pSheet) {
+    const pRows = pSheet.getLastRow();
+    if (pRows >= 2) {
+      pSheet.getRange(2, 1, pRows - 1, 8).getValues().forEach(r => {
+        const dateStr = normalizeDateCell_(r[0]);
+        if (dateStr < fromStr || dateStr > toStr) return;
+        const userName = r[3] ? r[3].toString().trim() : "";
+        if (!memberNames[userName]) return;
+        const tsRaw = r[6] instanceof Date ? r[6].getTime() : new Date(r[6]).getTime();
+        if (isNaN(tsRaw)) return;
+        addEntry(
+          dateStr,
+          userName,
+          r[2] ? r[2].toString().trim() : "",
+          r[4] ? r[4].toString().trim() : "",
+          parseCount_(r[7]),
+          tsRaw
+        );
+      });
+    }
+  }
+
+  // 3) Aggregate completed entries per (date, member), keeping the task list so
+  // the frontend can show per-cell details on click.
+  const dataByDate = {};
+  Object.keys(latest).forEach(k => {
+    const e = latest[k];
+    if (e.status.toLowerCase() !== "completed") return;
+    if (!dataByDate[e.date]) dataByDate[e.date] = {};
+    const u = dataByDate[e.date][e.userName] ||
+      (dataByDate[e.date][e.userName] = { completed: 0, records: 0, tasks: [] });
+    u.completed += 1;
+    u.records += e.recordsCount;
+    u.tasks.push({ taskName: e.taskName, records: e.recordsCount });
+  });
+
+  // 4) Ordered day list built with pure UTC math so the yyyy-MM-dd strings stay
+  // in the same frame as the sheet's dates (no DST/locale drift).
+  const days = [];
+  const startParts = fromStr.split("-");
+  const endParts = toStr.split("-");
+  const start = Date.UTC(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10));
+  const end = Date.UTC(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10));
+  for (let t = start; t <= end; t += 86400000) {
+    const d = new Date(t);
+    days.push(d.getUTCFullYear() + "-" + ("0" + (d.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + d.getUTCDate()).slice(-2));
+  }
+
+  return { members: members, days: days, data: dataByDate };
 }
 
 // ==========================================
@@ -539,43 +735,4 @@ function doGet() {
     .setTitle('Dept of Responsibility')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-function getReportSummary() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const logSheet = ss.getSheetByName(LOG_SHEET);
-  if (!logSheet) return { totalCompleted: 0, totalRemoved: 0, userStats: {} };
-
-  const lastRow = logSheet.getLastRow();
-  if (lastRow < 2) return { totalCompleted: 0, totalRemoved: 0, userStats: {} };
-
-  const logs = logSheet.getRange(2, 1, lastRow - 1, 5).getValues();
-  // Compare dates using explicit CST (America/Chicago), not the server runtime's
-  // ambient default timezone — otherwise "today" here can silently drift from the
-  // CST shift date the rest of the app (and the person using it) is working off of.
-  const todayStr = getTodayCstDateStr_();
-  
-  let totalCompleted = 0;
-  let totalRemoved = 0;
-  const userStats = {};
-
-  logs.forEach(row => {
-    const logDateRaw = row[0] ? new Date(row[0]) : null;
-    if (!logDateRaw || isNaN(logDateRaw)) return;
-    const logDate = Utilities.formatDate(logDateRaw, "America/Chicago", "yyyy-MM-dd");
-    const rawUser = row[1] ? row[1].toString() : "Unknown";
-    const cleanUser = rawUser.split(' (')[0].trim();
-    const status = row[4];
-
-    if (logDate === todayStr) {
-      if (status === "Completed") totalCompleted++;
-      if (status === "Removed") totalRemoved++;
-
-      if (!userStats[cleanUser]) userStats[cleanUser] = { completed: 0, removed: 0 };
-      if (status === "Completed") userStats[cleanUser].completed++;
-      if (status === "Removed") userStats[cleanUser].removed++;
-    }
-  });
-
-  return { todayStr, totalCompleted, totalRemoved, userStats };
 }
