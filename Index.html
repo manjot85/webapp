@@ -149,6 +149,9 @@
             <button onclick="switchReportSubTab('workload')" id="btn-subtab-workload" class="px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition">
               ⚖️ Workload Management
             </button>
+            <button onclick="switchReportSubTab('completion')" id="btn-subtab-completion" class="px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition">
+              📋 Daily Completion
+            </button>
           </div>
           <button onclick="exportReportCSV()" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-semibold text-[11px] rounded-xl border border-indigo-200/60 transition flex items-center gap-1.5">
             📥 Export Shift Report (CSV)
@@ -157,7 +160,23 @@
 
         <!-- SUB-TAB 1: TASK COMPLETION PROGRESS -->
         <div id="subtab-progress-view" class="block space-y-4">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Report Date (CST Shift)</label>
+              <input type="date" id="reportDateFilter" onchange="onReportDateChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter By Name</label>
+              <select id="reportNameFilter" onchange="onReportNameFilterChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+                <option value="all">All Team Members</option>
+              </select>
+            </div>
+            <div class="ml-auto">
+              <button onclick="loadReports()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh Report</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
               <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Active Assigned Tasks</p>
               <p id="statTotalActive" class="text-2xl font-extrabold text-indigo-600 mt-0.5">0</p>
@@ -165,6 +184,10 @@
             <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
               <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Shift Completed Tasks</p>
               <p id="statCompleted" class="text-2xl font-extrabold text-emerald-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Shift Records Completed</p>
+              <p id="statRecords" class="text-2xl font-extrabold text-sky-600 mt-0.5">0</p>
             </div>
             <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
               <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Shift Pending Tasks</p>
@@ -189,7 +212,7 @@
                 <h3 class="text-xs font-bold text-slate-800">Team Shift Completion Progress</h3>
                 <p class="text-[10px] text-slate-400">Click on any numeric cell to view task details for that team member.</p>
               </div>
-              <span class="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-md">CST Shift Sync Active</span>
+              <span id="reportDateBadge" class="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-md">Loading report date...</span>
             </div>
 
             <table class="w-full text-left text-[11px] whitespace-nowrap">
@@ -198,13 +221,14 @@
                   <th class="pb-2.5 font-semibold sortable-th" onclick="toggleSort('progress','name')">Team Member<span class="sort-arrow" id="arrow-progress-name">▲▼</span></th>
                   <th class="pb-2.5 font-semibold sortable-th" onclick="toggleSort('progress','title')">Title<span class="sort-arrow" id="arrow-progress-title">▲▼</span></th>
                   <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','completed')">Completed Tasks<span class="sort-arrow" id="arrow-progress-completed">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','records')">Records Count<span class="sort-arrow" id="arrow-progress-records">▲▼</span></th>
                   <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','pending')">Pending Tasks<span class="sort-arrow" id="arrow-progress-pending">▲▼</span></th>
                   <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','totalAssigned')">Total Assigned Tasks<span class="sort-arrow" id="arrow-progress-totalAssigned">▲▼</span></th>
                   <th class="pb-2.5 text-right font-semibold sortable-th" onclick="toggleSort('progress','rate')">Shift Completion %<span class="sort-arrow" id="arrow-progress-rate">▲▼</span></th>
                 </tr>
               </thead>
               <tbody id="userProgressReportTable" class="divide-y divide-slate-100">
-                <tr><td colspan="6" class="py-6 text-center text-slate-400">Loading progress summary...</td></tr>
+                <tr><td colspan="7" class="py-6 text-center text-slate-400">Loading progress summary...</td></tr>
               </tbody>
             </table>
 
@@ -266,6 +290,59 @@
               <tbody id="workloadTableBody" class="divide-y divide-slate-100">
                 <tr><td colspan="5" class="py-6 text-center text-slate-400">Analyzing team workload...</td></tr>
               </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 3: DAILY COMPLETION MATRIX -->
+        <div id="subtab-completion-view" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">From Date (CST Shift)</label>
+              <input type="date" id="completionDateFrom" onchange="onCompletionDateRangeChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">To Date (CST Shift)</label>
+              <input type="date" id="completionDateTo" onchange="onCompletionDateRangeChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter By Name</label>
+              <select id="completionNameFilter" onchange="onCompletionNameFilterChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+                <option value="all">All Team Members</option>
+              </select>
+            </div>
+            <div class="ml-auto">
+              <button onclick="loadCompletionReport()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh Report</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Team Members in View</p>
+              <p id="completionStatMembers" class="text-2xl font-extrabold text-indigo-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tasks Completed in Range</p>
+              <p id="completionStatCompleted" class="text-2xl font-extrabold text-emerald-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Records Completed in Range</p>
+              <p id="completionStatRecords" class="text-2xl font-extrabold text-sky-600 mt-0.5">0</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Daily Completion Status by Team Member</h3>
+                <p class="text-[10px] text-slate-400">Tasks logged as Completed in the Personal Task Status sheet, per person per day. Dash = nothing logged that day. Date range changes what's shown.</p>
+              </div>
+              <span id="completionRangeBadge" class="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-md">Loading range...</span>
+            </div>
+
+            <table class="w-full text-left text-[11px] whitespace-nowrap">
+              <thead id="completionMatrixHead"></thead>
+              <tbody id="completionMatrixBody" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
         </div>
@@ -630,6 +707,12 @@
 
         <p class="text-[11px] text-slate-500">This report is shared with: <span class="font-medium text-slate-700" id="markDoneModalAssignees"></span></p>
 
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Records Completed (required)</label>
+          <input type="number" id="markDoneCountInput" min="1" step="1" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. 25">
+          <p id="markDoneCountError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">Enter a valid count of at least 1.</p>
+        </div>
+
         <label class="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
           <input type="checkbox" id="markDoneForAllCheckbox" class="mt-0.5 w-3.5 h-3.5 text-amber-600 rounded border-amber-300 focus:ring-amber-500/20">
           <span class="text-[11px] text-amber-800">
@@ -641,6 +724,30 @@
         <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
           <button onclick="closeMarkDoneModal(true)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Cancel</button>
           <button onclick="confirmMarkDone()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 transition">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SINGLE TASK COMPLETION (record count entry) -->
+    <div id="singleCompleteModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Mark Task Done</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5" id="singleCompleteModalTaskName">Task Name</p>
+          </div>
+          <button onclick="closeSingleCompleteModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Records Completed (required)</label>
+          <input type="number" id="singleCompleteCountInput" min="1" step="1" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. 25">
+          <p id="singleCompleteCountError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">Enter a valid count of at least 1.</p>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+          <button onclick="closeSingleCompleteModal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Cancel</button>
+          <button onclick="confirmSingleTaskComplete()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 transition">Confirm</button>
         </div>
       </div>
     </div>
@@ -676,7 +783,14 @@
       let memberList = [];
       let masterTaskList = [];
       let selectedUser = null;
-      let cachedReportData = null;
+      let selectedReportDate = '';
+      let selectedReportName = '';
+      let reportStatusByRow = {};
+
+      let completionReport = null;
+      let selectedCompletionFrom = '';
+      let selectedCompletionTo = '';
+      let selectedCompletionName = '';
 
       const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -771,7 +885,7 @@
         } else if (tableKey === 'team') {
           loadTeamTable(memberList);
         } else if (tableKey === 'progress') {
-          if (cachedReportData) renderReports(cachedReportData);
+          renderReports();
         } else if (tableKey === 'workload') {
           renderWorkloadManagement();
         }
@@ -821,6 +935,33 @@
       function getTodayCstDay() {
         const cstDate = getCstDate();
         return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][cstDate.getDay()];
+      }
+
+      // Today's CST date as yyyy-MM-dd, matching the server's getTodayCstDateStr_().
+      // en-CA formats to YYYY-MM-DD so the string is directly comparable.
+      function getTodayCstDateStr() {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date());
+      }
+
+      // Weekday abbreviation ("Mon".."Sun") for a yyyy-MM-dd CST date string.
+      // Built from UTC date math (like the server) so the result is locale-proof.
+      function getCstWeekdayName(dateStr) {
+        const parts = String(dateStr || '').split('-');
+        if (parts.length !== 3) return '';
+        const d = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+        return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()];
+      }
+
+      // Active tasks scheduled on a given CST date. Mirrors the server's
+      // isScheduledToday: non-recurring tasks run every day; recurring tasks run
+      // only on weekdays included in their recurringDays list.
+      function getTasksScheduledOn(tasks, dateStr) {
+        const day = getCstWeekdayName(dateStr);
+        return (tasks || []).filter(t =>
+          t.isActive === true && (!t.isRecurring || t.recurringDays.includes(day))
+        );
       }
 
       function updateDualClocks() {
@@ -967,23 +1108,44 @@
       function switchReportSubTab(sub) {
         const btnProg = document.getElementById('btn-subtab-progress');
         const btnWork = document.getElementById('btn-subtab-workload');
+        const btnComp = document.getElementById('btn-subtab-completion');
         const viewProg = document.getElementById('subtab-progress-view');
         const viewWork = document.getElementById('subtab-workload-view');
+        const viewComp = document.getElementById('subtab-completion-view');
+
+        const progInactive = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+        const workInactive = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+        const compInactive = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+        const active = 'px-3 py-1.5 bg-white text-indigo-700 font-bold text-xs rounded-lg shadow-sm transition';
 
         if (sub === 'workload') {
           viewProg.classList.add('hidden');
+          viewComp.classList.add('hidden');
           viewWork.classList.remove('hidden');
 
-          btnWork.className = 'px-3 py-1.5 bg-white text-indigo-700 font-bold text-xs rounded-lg shadow-sm transition';
-          btnProg.className = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+          btnWork.className = active;
+          btnProg.className = progInactive;
+          btnComp.className = compInactive;
 
           loadWorkloadManagement();
+        } else if (sub === 'completion') {
+          viewProg.classList.add('hidden');
+          viewWork.classList.add('hidden');
+          viewComp.classList.remove('hidden');
+
+          btnComp.className = active;
+          btnProg.className = progInactive;
+          btnWork.className = workInactive;
+
+          loadCompletionReport();
         } else {
           viewWork.classList.add('hidden');
+          viewComp.classList.add('hidden');
           viewProg.classList.remove('hidden');
 
-          btnProg.className = 'px-3 py-1.5 bg-white text-indigo-700 font-bold text-xs rounded-lg shadow-sm transition';
-          btnWork.className = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+          btnProg.className = active;
+          btnWork.className = workInactive;
+          btnComp.className = compInactive;
 
           loadReports();
         }
@@ -1014,8 +1176,10 @@
 
       let personalStatusByRow = {};
       let pendingShareToggleCheckbox = null;
+      let pendingSingleToggleCheckbox = null;
       let markDoneModalRow = null;
       let deferModalRow = null;
+      let singleCompleteModalRow = null;
 
       function loadTasks() {
         if (typeof google === 'undefined' || !google.script || !google.script.run) return;
@@ -1060,7 +1224,7 @@
         const map = {};
         (statuses || []).forEach(s => {
           if (!map[s.row]) map[s.row] = {};
-          map[s.row][s.userName] = { status: s.status, note: s.note };
+          map[s.row][s.userName] = { status: s.status, note: s.note, recordsCount: s.recordsCount || 0 };
         });
         return map;
       }
@@ -1071,6 +1235,45 @@
         if (!rowMap) return null;
         const entry = rowMap[userName];
         return entry ? entry.status : null;
+      }
+
+      // Returns the count of records this user completed for a task today (0 if none).
+      // Unlike getMyPersonalStatus this has no shared-task guard, because single-assignee
+      // completions also write a personal status row carrying the record count.
+      function getMyPersonalCount(task, userName) {
+        if (!task) return 0;
+        const rowMap = personalStatusByRow[task.row];
+        if (!rowMap) return 0;
+        const entry = rowMap[userName];
+        return entry && entry.recordsCount ? entry.recordsCount : 0;
+      }
+
+      // ---- Daily Reports per-date helpers (reportStatusByRow for the chosen date) ----
+
+      function getReportStatusEntry(task, userName) {
+        if (!task) return null;
+        const rowMap = reportStatusByRow[task.row];
+        if (!rowMap) return null;
+        return rowMap[userName] || null;
+      }
+
+      // Is this task "completed" for this member on the chosen report date?
+      // A member is credited when their personal status says Completed for that
+      // date, OR when the task was completed for the whole team on that date
+      // (the global flag's completedDate matches). Recurring tasks finished on an
+      // earlier day correctly show pending again.
+      function isMemberCompleted(task, memberName) {
+        const entry = getReportStatusEntry(task, memberName);
+        if (entry && entry.status === 'Completed') return true;
+        return task.completed === true && task.completedDate === selectedReportDate;
+      }
+
+      // Record count credited to a member for a task on the report date. Only the
+      // completing user's personal status carries a count.
+      function getMemberRecords(task, memberName) {
+        const entry = getReportStatusEntry(task, memberName);
+        if (entry && entry.status === 'Completed') return entry.recordsCount || 0;
+        return 0;
       }
 
       function filterTasksByStatus(tasks, filterVal) {
@@ -1182,7 +1385,7 @@
 
         if (!document.getElementById('tab-reports').classList.contains('hidden')) {
           if (!document.getElementById('subtab-progress-view').classList.contains('hidden')) {
-            refreshReportSummaryOnly();
+            fetchReportStatuses();
           } else {
             renderWorkloadManagement();
           }
@@ -1352,6 +1555,7 @@
         const myCompleted = t.myCompleted === true;
         const myDeferred = t.myDeferredToday === true;
         const isChecked = t.completed === true || myCompleted;
+        const myCount = myCompleted ? getMyPersonalCount(t, selectedUser ? selectedUser.name : '') : 0;
 
         // Single-assignee tasks keep the exact original checkbox behavior (one click
         // completes it, full stop). Shared/multi-assignee tasks route through a
@@ -1359,14 +1563,17 @@
         // for everyone else on the team.
         const checkboxOnChange = isShared
           ? `handleSharedToggle(${t.row}, this.checked, ${t.completed ? 'true' : 'false'}, this)`
-          : `handleToggle(${t.row}, this.checked)`;
+          : `handleToggle(${t.row}, this.checked, this)`;
 
         let extraRow = '';
+        if (myCompleted && myCount > 0) {
+          extraRow += `<div class="mt-0.5 text-[9px] font-semibold text-emerald-600">${myCount} record${myCount === 1 ? '' : 's'} completed</div>`;
+        }
         if (isShared && myCompleted && !t.completed) {
-          extraRow = `<div class="mt-0.5"><button onclick="promptMarkCompleteForAll(${t.row})" class="text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline">🌐 Mark Complete for All (Team)</button></div>`;
+          extraRow += `<div class="mt-0.5"><button onclick="promptMarkCompleteForAll(${t.row})" class="text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline">🌐 Mark Complete for All (Team)</button></div>`;
         } else if (isShared && myDeferred) {
           const coveredBy = personalStatusByRow[t.row] && personalStatusByRow[t.row][selectedUser ? selectedUser.name : ''] ? personalStatusByRow[t.row][selectedUser.name].note : '';
-          extraRow = `<div class="mt-0.5 text-[9px] font-medium text-amber-600">⏭ Deferred for today${coveredBy ? ' · covered by ' + coveredBy : ''} · <button onclick="undeferTask(${t.row})" class="hover:underline">Undo</button></div>`;
+          extraRow += `<div class="mt-0.5 text-[9px] font-medium text-amber-600">⏭ Deferred for today${coveredBy ? ' · covered by ' + coveredBy : ''} · <button onclick="undeferTask(${t.row})" class="hover:underline">Undo</button></div>`;
         }
 
         const deferBtn = (isShared && !myCompleted && !myDeferred && !t.completed)
@@ -1784,12 +1991,52 @@
         }
       }
 
-      function handleToggle(row, isChecked) {
+      function handleToggle(row, isChecked, arg) {
+        // Checking always requires a record count. If one wasn't supplied yet,
+        // route through the single-task completion modal first.
+        if (isChecked && typeof arg !== 'number') {
+          pendingSingleToggleCheckbox = (arg && arg.tagName) ? arg : null;
+          openSingleCompleteModal(row);
+          return;
+        }
         google.script.run
           .withSuccessHandler(() => {
             loadTasks();
           })
-          .toggleTaskStatus(row, isChecked, selectedUser.name, selectedUser.title);
+          .toggleTaskStatus(row, isChecked, selectedUser.name, selectedUser.title, isChecked ? arg : '');
+      }
+
+      function openSingleCompleteModal(row) {
+        const task = masterTaskList.find(t => t.row === row);
+        if (!task) return;
+        singleCompleteModalRow = row;
+        document.getElementById('singleCompleteModalTaskName').innerText = task.taskName;
+        document.getElementById('singleCompleteCountInput').value = '';
+        document.getElementById('singleCompleteCountError').classList.add('hidden');
+        document.getElementById('singleCompleteModal').classList.remove('hidden');
+      }
+
+      function closeSingleCompleteModal() {
+        document.getElementById('singleCompleteModal').classList.add('hidden');
+        if (pendingSingleToggleCheckbox) {
+          pendingSingleToggleCheckbox.checked = false;
+        }
+        pendingSingleToggleCheckbox = null;
+        singleCompleteModalRow = null;
+      }
+
+      function confirmSingleTaskComplete() {
+        const row = singleCompleteModalRow;
+        if (!row) { closeSingleCompleteModal(); return; }
+        const countInput = document.getElementById('singleCompleteCountInput');
+        const count = parseInt(countInput.value, 10);
+        if (!countInput.value.trim() || isNaN(count) || count < 1) {
+          document.getElementById('singleCompleteCountError').classList.remove('hidden');
+          return;
+        }
+        pendingSingleToggleCheckbox = null;
+        closeSingleCompleteModal();
+        handleToggle(row, true, count);
       }
 
       // ==========================================
@@ -1816,21 +2063,23 @@
         openMarkDoneModal(row);
       }
 
-      function setPersonalCompletion(row, isCompleted) {
+      function setPersonalCompletion(row, isCompleted, recordsCount) {
         if (!selectedUser) return;
         google.script.run
           .withSuccessHandler(() => loadTasks())
           .withFailureHandler(err => { alert('Error updating task: ' + err); loadTasks(); })
-          .setPersonalTaskStatus(row, selectedUser.name, selectedUser.title, isCompleted ? 'Completed' : 'Pending', '');
+          .setPersonalTaskStatus(row, selectedUser.name, selectedUser.title, isCompleted ? 'Completed' : 'Pending', '', isCompleted ? recordsCount : '');
       }
 
-      function openMarkDoneModal(row) {
+      function openMarkDoneModal(row, forceForAll) {
         const task = masterTaskList.find(t => t.row === row);
         if (!task) return;
         markDoneModalRow = row;
         document.getElementById('markDoneModalTaskName').innerText = task.taskName;
         document.getElementById('markDoneModalAssignees').innerText = task.assignedTo.join(', ');
-        document.getElementById('markDoneForAllCheckbox').checked = false;
+        document.getElementById('markDoneForAllCheckbox').checked = !!forceForAll;
+        document.getElementById('markDoneCountInput').value = '';
+        document.getElementById('markDoneCountError').classList.add('hidden');
         document.getElementById('markDoneModal').classList.remove('hidden');
       }
 
@@ -1846,28 +2095,28 @@
       function confirmMarkDone() {
         const row = markDoneModalRow;
         if (!row) { closeMarkDoneModal(false); return; }
+        const countInput = document.getElementById('markDoneCountInput');
+        const count = parseInt(countInput.value, 10);
+        if (!countInput.value.trim() || isNaN(count) || count < 1) {
+          document.getElementById('markDoneCountError').classList.remove('hidden');
+          return;
+        }
         const forAll = document.getElementById('markDoneForAllCheckbox').checked;
         document.getElementById('markDoneModal').classList.add('hidden');
         pendingShareToggleCheckbox = null;
         markDoneModalRow = null;
 
         if (forAll) {
-          handleToggle(row, true);
+          handleToggle(row, true, count);
         } else {
-          setPersonalCompletion(row, true);
+          setPersonalCompletion(row, true, count);
         }
       }
 
       // Retroactive "Mark Complete for All" — for when someone already completed
       // their own personal copy but forgot to clear it for the rest of the team.
       function promptMarkCompleteForAll(row) {
-        const task = masterTaskList.find(t => t.row === row);
-        if (!task) return;
-        const others = task.assignedTo.filter(n => n !== (selectedUser ? selectedUser.name : ''));
-        const ok = confirm(`Mark "${task.taskName}" complete for the ENTIRE team today?\n\nThis removes it from ${others.length ? others.join(', ') : 'the other assignees'}'s pending queue too.`);
-        if (ok) {
-          handleToggle(row, true);
-        }
+        openMarkDoneModal(row, true);
       }
 
       // ==========================================
@@ -1919,76 +2168,344 @@
       }
 
       function loadReports() {
-        // Tally against a guaranteed-fresh task list, not whatever masterTaskList
-        // happened to hold from a previous tab/render. Without this, the summary
-        // counts here can race against the independent loadTasks() call and briefly
-        // disagree with the drilldown modal (which always reads the latest data) —
-        // e.g. showing "8 pending" in the table but only 2 tasks when you click in.
+        // Fresh task list + per-date statuses for the selected date (defaults to
+        // today in CST), so the summary and the drilldown can never disagree.
+        if (!selectedReportDate) selectedReportDate = getTodayCstDateStr();
+        populateReportNameFilter();
+        const dateInput = document.getElementById('reportDateFilter');
+        if (dateInput) dateInput.value = selectedReportDate;
+        updateReportDateBadge();
         google.script.run
           .withSuccessHandler(tasks => {
             masterTaskList = tasks || [];
-            refreshReportSummaryOnly();
+            fetchReportStatuses();
           })
           .withFailureHandler(err => console.error("Error loading tasks for reports:", err))
           .getAllTasksMaster();
       }
 
-      // Re-tallies the Progress report against whatever masterTaskList currently
-      // holds, without refetching tasks. Only safe to call where the caller already
-      // knows masterTaskList is fresh (e.g. right after getAllTasksMaster resolved).
-      function refreshReportSummaryOnly() {
+      // Fetch per-date personal statuses for the currently selected report date,
+      // then re-render. Safe to call whenever masterTaskList is already fresh.
+      function fetchReportStatuses() {
         google.script.run
-          .withSuccessHandler(renderReports)
-          .withFailureHandler(err => console.error("Error loading report summary:", err))
-          .getReportSummary();
+          .withSuccessHandler(statuses => {
+            reportStatusByRow = buildReportStatusMap(statuses || []);
+            renderReports();
+          })
+          .withFailureHandler(err => console.error("Error loading report statuses:", err))
+          .getDailyReportStatuses(selectedReportDate);
       }
 
-      function renderReports(data) {
-        cachedReportData = data;
+      function buildReportStatusMap(statuses) {
+        const map = {};
+        (statuses || []).forEach(s => {
+          if (!s || !s.row) return;
+          if (!map[s.row]) map[s.row] = {};
+          map[s.row][s.userName] = {
+            status: s.status,
+            note: s.note || '',
+            timestamp: s.timestamp || '',
+            recordsCount: s.recordsCount || 0
+          };
+        });
+        return map;
+      }
 
+      function onReportDateChange() {
+        selectedReportDate = document.getElementById('reportDateFilter').value;
+        updateReportDateBadge();
+        fetchReportStatuses();
+      }
+
+      function onReportNameFilterChange() {
+        selectedReportName = document.getElementById('reportNameFilter').value;
+        renderReports();
+      }
+
+      function populateReportNameFilter() {
+        const sel = document.getElementById('reportNameFilter');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">All Team Members</option>' +
+          (memberList || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+      }
+
+      function updateReportDateBadge() {
+        const badge = document.getElementById('reportDateBadge');
+        if (!badge) return;
+        const todayStr = getTodayCstDateStr();
+        badge.innerText = selectedReportDate === todayStr
+          ? `Today (${selectedReportDate})`
+          : selectedReportDate || todayStr;
+      }
+
+      // ---- Daily Completion matrix (per person per day in a date range) ----
+
+      // Default range is the current CST week (Mon..today), matching how most
+      // people think of a "per day" completion report for the current shift week.
+      function getDefaultCompletionRange() {
+        const todayStr = getTodayCstDateStr();
+        const [y, m, d] = todayStr.split('-').map(Number);
+        const utcToday = Date.UTC(y, m - 1, d);
+        const dayIndex = new Date(utcToday).getUTCDay();
+        const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+        const monday = new Date(utcToday + mondayOffset * 86400000);
+        const pad = n => String(n).padStart(2, '0');
+        const fromStr = monday.getUTCFullYear() + '-' + pad(monday.getUTCMonth() + 1) + '-' + pad(monday.getUTCDate());
+        return { from: fromStr, to: todayStr };
+      }
+
+      function loadCompletionReport() {
+        if (!selectedCompletionFrom || !selectedCompletionTo) {
+          const range = getDefaultCompletionRange();
+          selectedCompletionFrom = range.from;
+          selectedCompletionTo = range.to;
+        }
+
+        const fromInput = document.getElementById('completionDateFrom');
+        const toInput = document.getElementById('completionDateTo');
+        if (fromInput) fromInput.value = selectedCompletionFrom;
+        if (toInput) toInput.value = selectedCompletionTo;
+        populateCompletionNameFilter();
+        updateCompletionRangeBadge();
+
+        google.script.run
+          .withSuccessHandler(report => {
+            completionReport = report || { members: [], days: [], data: {} };
+            renderCompletionReport();
+          })
+          .withFailureHandler(err => {
+            console.error("Error loading completion report:", err);
+            document.getElementById('completionMatrixBody').innerHTML =
+              '<tr><td colspan="10" class="py-6 text-center text-slate-400">Error loading completion report.</td></tr>';
+          })
+          .getDailyCompletionReport(selectedCompletionFrom, selectedCompletionTo);
+      }
+
+      function onCompletionDateRangeChange() {
+        selectedCompletionFrom = document.getElementById('completionDateFrom').value;
+        selectedCompletionTo = document.getElementById('completionDateTo').value;
+
+        if (!selectedCompletionFrom || !selectedCompletionTo) {
+          alert('Please select both a From and To date.');
+          return;
+        }
+        if (selectedCompletionFrom > selectedCompletionTo) {
+          alert('"From Date" must be on or before "To Date".');
+          document.getElementById('completionDateFrom').value = '';
+          document.getElementById('completionDateTo').value = '';
+          return;
+        }
+
+        loadCompletionReport();
+      }
+
+      function onCompletionNameFilterChange() {
+        selectedCompletionName = document.getElementById('completionNameFilter').value;
+        renderCompletionReport();
+      }
+
+      function populateCompletionNameFilter() {
+        const sel = document.getElementById('completionNameFilter');
+        if (!sel) return;
+        const members = completionReport ? completionReport.members : (memberList || []);
+        const opts = ['<option value="all">All Team Members</option>']
+          .concat(members.map(m => `<option value="${m.name}">${m.name}</option>`))
+          .join('');
+        if (sel.innerHTML !== opts) sel.innerHTML = opts;
+        sel.value = selectedCompletionName || 'all';
+      }
+
+      function updateCompletionRangeBadge() {
+        const badge = document.getElementById('completionRangeBadge');
+        if (!badge) return;
+        const todayStr = getTodayCstDateStr();
+        badge.innerText = (selectedCompletionFrom && selectedCompletionTo)
+          ? `${selectedCompletionFrom} → ${selectedCompletionTo}${selectedCompletionTo === todayStr ? ' (through today)' : ''}`
+          : 'Loading range...';
+      }
+
+      function jsEscape(str) {
+        return String(str == null ? '' : str)
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '&quot;');
+      }
+
+      function openCompletionDrilldown(memberName, dateStr) {
+        if (!completionReport) return;
+        const cell = completionReport.data[dateStr] && completionReport.data[dateStr][memberName];
+        if (!cell || !cell.tasks || cell.tasks.length === 0) return;
+
+        const tasks = cell.tasks.map(t => ({
+          taskName: t.taskName,
+          taskType: 'Report',
+          status: 'Completed',
+          memberCompleted: true,
+          memberCount: t.records || 0
+        }));
+
+        const dateLabel = dateStr === getTodayCstDateStr() ? `${dateStr} (Today)` : dateStr;
+        showTaskListModal(
+          `${memberName} — Completed Tasks`,
+          `${dateLabel} · ${tasks.length} task(s) completed · ${cell.records} total records`,
+          tasks
+        );
+      }
+
+      function renderCompletionReport() {
+        if (!completionReport) return;
+
+        const { members, days, data } = completionReport;
+        const todayStr = getTodayCstDateStr();
+
+        const rows = selectedCompletionName && selectedCompletionName !== 'all'
+          ? members.filter(m => m.name === selectedCompletionName)
+          : members.slice();
+
+        const thead = document.getElementById('completionMatrixHead');
+        const tbody = document.getElementById('completionMatrixBody');
+
+        if (rows.length === 0 || days.length === 0) {
+          thead.innerHTML = '';
+          tbody.innerHTML = '<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">No data for the selected range.</td></tr>';
+          document.getElementById('completionStatMembers').innerText = '0';
+          document.getElementById('completionStatCompleted').innerText = '0';
+          document.getElementById('completionStatRecords').innerText = '0';
+          return;
+        }
+
+        thead.innerHTML = `
+          <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+            <th class="pb-2.5 font-semibold">Team Member</th>
+            ${days.map(ds => {
+              const isToday = ds === todayStr;
+              const [, mm, dd] = ds.split('-');
+              const wd = getCstWeekdayName(ds);
+              return `<th class="pb-2.5 font-semibold text-center ${isToday ? 'text-indigo-600' : ''}" title="${ds}">${wd}<span class="block text-[9px] normal-case font-medium ${isToday ? 'text-indigo-500' : 'text-slate-400'}">${mm}/${dd}</span></th>`;
+            }).join('')}
+            <th class="pb-2.5 font-semibold text-center">Range Total</th>
+          </tr>`;
+
+        const dayTotals = {};
+        let grandCompleted = 0;
+        let grandRecords = 0;
+
+        const bodyRows = rows.map(m => {
+          let rowCompleted = 0;
+          let rowRecords = 0;
+
+          const cells = days.map(ds => {
+            const entry = data[ds] && data[ds][m.name];
+            if (!entry || entry.completed === 0) {
+              return '<td class="py-2 px-1.5 text-center text-slate-200">—</td>';
+            }
+            dayTotals[ds] = (dayTotals[ds] || 0) + entry.completed;
+            rowCompleted += entry.completed;
+            grandCompleted += entry.completed;
+            rowRecords += entry.records;
+            grandRecords += entry.records;
+            const isToday = ds === todayStr;
+            const cellLabel = `${m.name} · ${ds} · ${entry.completed} task(s) completed · ${entry.records} records · click for details`;
+            return `<td class="py-2 px-1.5 text-center">
+              <button onclick="openCompletionDrilldown('${jsEscape(m.name)}', '${ds}')" title="${cellLabel}" class="inline-flex flex-col items-center gap-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg px-2 py-1 cursor-pointer transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 ${isToday ? 'ring-1 ring-indigo-300' : ''}">
+                <span class="font-bold text-[11px] leading-none">✓ ${entry.completed}</span>
+                ${entry.records ? `<span class="text-[9px] leading-none opacity-70">${entry.records} rec</span>` : ''}
+              </button>
+            </td>`;
+          }).join('');
+
+          return `
+            <tr class="hover:bg-slate-50/50 transition">
+              <td class="py-2.5 font-semibold text-slate-800">
+                ${m.name}
+                <span class="block text-[9px] font-normal text-slate-400">${m.title}</span>
+              </td>
+              ${cells}
+              <td class="py-2.5 text-center">
+                <span class="font-bold text-indigo-700">${rowCompleted}</span>
+                ${rowRecords ? `<span class="text-[9px] text-slate-400">· ${rowRecords} rec</span>` : ''}
+              </td>
+            </tr>`;
+        }).join('');
+
+        const totalRow = `
+          <tr class="border-t border-slate-200 bg-slate-50">
+            <td class="py-2.5 font-bold text-slate-700">${selectedCompletionName && selectedCompletionName !== 'all' ? `Day Totals (${selectedCompletionName})` : 'Day Totals (all members)'}</td>
+            ${days.map(ds => {
+              const total = dayTotals[ds] || 0;
+              return `<td class="py-2.5 text-center font-bold ${total ? 'text-emerald-700' : 'text-slate-300'}">${total || '—'}</td>`;
+            }).join('')}
+            <td class="py-2.5 text-center font-extrabold text-indigo-700">${grandCompleted}</td>
+          </tr>`;
+
+        tbody.innerHTML = bodyRows + totalRow;
+
+        document.getElementById('completionStatMembers').innerText = rows.length;
+        document.getElementById('completionStatCompleted').innerText = grandCompleted;
+        document.getElementById('completionStatRecords').innerText = grandRecords;
+      }
+
+      function renderReports() {
         const userTbody = document.getElementById('userProgressReportTable');
         if (!memberList || memberList.length === 0) {
           userTbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400">No team profiles available.</td></tr>';
           return;
         }
 
-        const activeMasterTasks = getTodayScheduledActiveTasks();
+        // Day-aware: only tasks scheduled on the selected date are tallied.
+        const scheduledTasks = getTasksScheduledOn(masterTaskList, selectedReportDate);
 
         let sumTotalAssigned = 0;
         let sumCompleted = 0;
         let sumPending = 0;
+        let sumRecords = 0;
 
         const memberStats = memberList.map(member => {
-          const userActivity = (data.userStats && data.userStats[member.name]) || { completed: 0, removed: 0 };
-          const assignedActiveTasks = activeMasterTasks.filter(t => t.assignedTo.includes(member.name));
+          const memberTasks = scheduledTasks.filter(t => t.assignedTo.includes(member.name));
 
-          const totalAssigned = assignedActiveTasks.length;
-          const completedCount = userActivity.completed || 0;
-          const pendingCount = Math.max(0, totalAssigned - completedCount);
+          const totalAssigned = memberTasks.length;
+          let completedCount = 0;
+          let recordsCount = 0;
+          memberTasks.forEach(t => {
+            if (isMemberCompleted(t, member.name)) {
+              completedCount += 1;
+              recordsCount += getMemberRecords(t, member.name);
+            }
+          });
+          const pendingCount = totalAssigned - completedCount;
           const rate = totalAssigned > 0 ? Math.min(100, Math.round((completedCount / totalAssigned) * 100)) : 0;
 
           sumTotalAssigned += totalAssigned;
           sumCompleted += completedCount;
           sumPending += pendingCount;
+          sumRecords += recordsCount;
 
           return {
             name: member.name,
             title: member.title,
             completed: completedCount,
+            records: recordsCount,
             pending: pendingCount,
             totalAssigned: totalAssigned,
             rate: rate
           };
         });
 
+        // Name filter (client-side, applies to the table + drilldowns).
+        let filteredStats = memberStats;
+        if (selectedReportName) {
+          filteredStats = memberStats.filter(m => m.name === selectedReportName);
+        }
+
         document.getElementById('statTotalActive').innerText = sumTotalAssigned;
         document.getElementById('statCompleted').innerText = sumCompleted;
         document.getElementById('statPending').innerText = sumPending;
+        document.getElementById('statRecords').innerText = sumRecords;
 
         const progressState = sortState.progress;
-        let sortedStats = memberStats;
+        let sortedStats = filteredStats;
         if (progressState && progressState.col) {
-          sortedStats = memberStats.slice().sort((a, b) => {
+          sortedStats = filteredStats.slice().sort((a, b) => {
             let va = a[progressState.col], vb = b[progressState.col];
             if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
             return compareValues(va, vb) * progressState.dir;
@@ -2000,17 +2517,22 @@
             <td class="py-2.5 font-semibold text-slate-800">${m.name}</td>
             <td class="py-2.5 text-slate-500">${m.title}</td>
             <td class="py-2.5 text-center">
-              <button onclick="openTaskDrilldownModal('${m.name}', 'completed')" class="px-2 py-0.5 font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 rounded-md transition cursor-pointer">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'completed', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 rounded-md transition cursor-pointer">
                 ${m.completed}
               </button>
             </td>
             <td class="py-2.5 text-center">
-              <button onclick="openTaskDrilldownModal('${m.name}', 'pending')" class="px-2 py-0.5 font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200/60 rounded-md transition cursor-pointer">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'completed', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 border border-sky-200/60 rounded-md transition cursor-pointer">
+                ${m.records}
+              </button>
+            </td>
+            <td class="py-2.5 text-center">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'pending', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200/60 rounded-md transition cursor-pointer">
                 ${m.pending}
               </button>
             </td>
             <td class="py-2.5 text-center">
-              <button onclick="openTaskDrilldownModal('${m.name}', 'total')" class="px-2 py-0.5 font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/60 rounded-md transition cursor-pointer">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'total', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/60 rounded-md transition cursor-pointer">
                 ${m.totalAssigned}
               </button>
             </td>
@@ -2028,7 +2550,7 @@
         renderTasksByDayGrid('progressByDayGrid', computeTasksByDay(masterTaskList));
 
         const footerEl = document.getElementById('footerTotalDeptTasks');
-        if (footerEl) footerEl.innerText = activeMasterTasks.length;
+        if (footerEl) footerEl.innerText = scheduledTasks.length;
       }
 
       function showTaskListModal(title, subtitle, tasks) {
@@ -2044,9 +2566,12 @@
               <td class="py-2 px-1 font-medium text-slate-800 max-w-[220px] truncate" title="${t.taskName}">${t.taskName}</td>
               <td class="py-2 px-1"><span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[9px] font-medium border border-slate-200/50">${t.taskType || 'Report'}</span></td>
               <td class="py-2 px-1">
-                ${(t.memberCompleted !== undefined ? t.memberCompleted : t.completed)
-                  ? '<span class="px-2 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/60 rounded-md">Completed</span>' 
-                  : '<span class="px-2 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md">Pending</span>'
+                ${t.status === 'Deferred'
+                  ? '<span class="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200/60 rounded-md">Deferred</span>'
+                  : ((t.memberCompleted !== undefined ? t.memberCompleted : t.completed)
+                    ? `<span class="px-2 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/60 rounded-md">Completed${t.memberCount ? ` · ${t.memberCount} records` : ''}</span>` 
+                    : '<span class="px-2 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md">Pending</span>'
+                  )
                 }
               </td>
               <td class="py-2 px-1 text-right">${getDashboardLinkHtml(t)}</td>
@@ -2057,18 +2582,16 @@
         document.getElementById('taskDrilldownModal').classList.remove('hidden');
       }
 
-      function openTaskDrilldownModal(memberName, filterType) {
-        const activeMasterTasks = getTodayScheduledActiveTasks();
-        // Enrich with this specific member's effective completion state — for shared
-        // (multi-assignee) tasks, a personal-only completion doesn't touch the task's
-        // global "completed" flag, so it must be resolved per-member here too,
-        // otherwise this list can disagree with the summary counts (which already
-        // credit personal completions via the Log sheet).
-        const memberTasks = activeMasterTasks.filter(t => t.assignedTo.includes(memberName)).map(t => {
-          const isSharedTask = t.assignedTo.length > 1;
-          const personalStatus = getMyPersonalStatus(t, memberName);
-          const memberCompleted = t.completed === true || (isSharedTask && personalStatus === 'Completed');
-          return Object.assign({}, t, { memberCompleted: memberCompleted });
+      function openTaskDrilldownModal(memberName, filterType, dateStr) {
+        const targetDate = dateStr || selectedReportDate;
+        const scheduledTasks = getTasksScheduledOn(masterTaskList, targetDate);
+        // Resolve each task's effective completion state for this specific member on
+        // the target date (personal statuses for that date + the global team flag's
+        // completedDate), so the drilldown always matches the summary counts.
+        const memberTasks = scheduledTasks.filter(t => t.assignedTo.includes(memberName)).map(t => {
+          const memberCompleted = isMemberCompleted(t, memberName);
+          const memberCount = memberCompleted ? getMemberRecords(t, memberName) : 0;
+          return Object.assign({}, t, { memberCompleted: memberCompleted, memberCount: memberCount });
         });
 
         let displayedTasks = [];
@@ -2085,7 +2608,8 @@
           statusLabel = "Total Assigned Tasks";
         }
 
-        showTaskListModal(`${memberName} — ${statusLabel}`, `Showing ${displayedTasks.length} task(s)`, displayedTasks);
+        const dateLabel = targetDate === getTodayCstDateStr() ? `${targetDate} (Today)` : targetDate;
+        showTaskListModal(`${memberName} — ${statusLabel}`, `${dateLabel} · Showing ${displayedTasks.length} task(s)`, displayedTasks);
       }
 
       function closeDrilldownModal() {
@@ -2171,41 +2695,50 @@
       }
 
       function exportReportCSV() {
-        if (!cachedReportData || !memberList) {
+        if (!memberList) {
           alert('Report data is loading, please try again in a moment.');
           return;
         }
 
-        const activeMasterTasks = getTodayScheduledActiveTasks();
-        const cstDate = getCstDate();
-        const shiftDateStr = cstDate.toISOString().split('T')[0];
+        const reportDate = selectedReportDate || getTodayCstDateStr();
+        const scheduledTasks = getTasksScheduledOn(masterTaskList, reportDate);
 
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += `Shift Performance Report (CST Date: ${shiftDateStr})\n`;
-        csvContent += `Team Member,Title,Completed Tasks,Pending Tasks,Total Assigned Tasks,Completion Rate\n`;
+        csvContent += `Shift Performance Report (CST Date: ${reportDate})\n`;
+        csvContent += `Team Member,Title,Completed Tasks,Records Count,Pending Tasks,Total Assigned Tasks,Completion Rate\n`;
 
         memberList.forEach(m => {
-          const userActivity = (cachedReportData.userStats && cachedReportData.userStats[m.name]) || { completed: 0, removed: 0 };
-          const activeCount = activeMasterTasks.filter(t => t.assignedTo.includes(m.name)).length;
-          const completedCount = userActivity.completed || 0;
-          const pendingCount = Math.max(0, activeCount - completedCount);
-          const rate = activeCount > 0 ? Math.min(100, Math.round((completedCount / activeCount) * 100)) : 0;
+          const memberTasks = scheduledTasks.filter(t => t.assignedTo.includes(m.name));
+          let completedCount = 0;
+          let recordsCount = 0;
+          memberTasks.forEach(t => {
+            if (isMemberCompleted(t, m.name)) {
+              completedCount += 1;
+              recordsCount += getMemberRecords(t, m.name);
+            }
+          });
+          const pendingCount = memberTasks.length - completedCount;
+          const rate = memberTasks.length > 0 ? Math.min(100, Math.round((completedCount / memberTasks.length) * 100)) : 0;
 
-          csvContent += `"${m.name}","${m.title}",${completedCount},${pendingCount},${activeCount},"${rate}%"\n`;
+          csvContent += `"${m.name}","${m.title}",${completedCount},${recordsCount},${pendingCount},${memberTasks.length},"${rate}%"`;
+          if (selectedReportName && m.name === selectedReportName) {
+            csvContent += `,FILTERED`;
+          }
+          csvContent += `\n`;
         });
 
         csvContent += `\nActive Tasks by Day (Department-wide)\n`;
         csvContent += `Day,Active Task Count\n`;
-        const tasksByDay = computeTasksByDay(activeMasterTasks);
+        const tasksByDay = computeTasksByDay(scheduledTasks);
         WEEK_DAYS.forEach(day => {
           csvContent += `"${day}",${tasksByDay[day].length}\n`;
         });
-        csvContent += `\nTotal Department Tasks (Active),${activeMasterTasks.length}\n`;
+        csvContent += `\nTotal Department Tasks (Active on ${reportDate}),${scheduledTasks.length}\n`;
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `Shift_Task_Completion_Report_${shiftDateStr}.csv`);
+        link.setAttribute("download", `Shift_Task_Completion_Report_${reportDate}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
