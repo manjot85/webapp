@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .mgmt-hidden { display: none !important; }
+      th.sortable-th { cursor: pointer; user-select: none; }
+      th.sortable-th:hover { color: #4f46e5; }
+      .sort-arrow { display: inline-block; margin-left: 2px; opacity: 0.35; font-size: 9px; }
+      .sort-arrow.active { opacity: 1; color: #4338ca; }
+      tr.group-header-row td { background: #eef2ff; color: #4338ca; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; padding-top: 6px; padding-bottom: 6px; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-800 font-sans min-h-screen antialiased">
+
+    <!-- SCREEN 1: USER SELECTION GATEWAY -->
+    <div id="landingScreen" class="min-h-screen flex items-center justify-center p-4">
+      <div class="bg-white max-w-md w-full p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-6">
+        <div>
+          <div class="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-3">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h1 class="text-xl font-bold text-slate-900 tracking-tight">Dept of Responsibility</h1>
+          <p class="text-xs text-slate-500 mt-1">Select your profile to continue</p>
+        </div>
+
+        <div class="text-left space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Viewing As</label>
+            <button onclick="fetchTeamData()" class="text-[10px] font-semibold text-indigo-600 hover:underline">🔄 Retry Load</button>
+          </div>
+          <select id="gatewayUserSelect" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-medium rounded-xl p-3 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none transition">
+            <option value="">Loading team profiles...</option>
+          </select>
+        </div>
+
+        <button onclick="enterPortal()" class="w-full py-3 bg-indigo-600 text-white font-medium text-xs rounded-xl shadow-sm hover:bg-indigo-700 active:scale-[0.99] transition duration-150">
+          Enter Portal →
+        </button>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: MAIN DASHBOARD PORTAL -->
+    <div id="mainAppScreen" class="hidden max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+      
+      <!-- Top Header & Navigation -->
+      <header class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold text-slate-900 tracking-tight">Dept of Responsibility</h1>
+          </div>
+          <div class="flex flex-col gap-0.5 text-[11px]">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="cstTimeDisplay" class="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Loading CST shift time...</span>
+              <span class="text-slate-300">•</span>
+              <span id="activeUserBadge" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200/60"></span>
+              <button onclick="exitToLanding()" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md transition ml-1">
+                🔄 Switch User
+              </button>
+            </div>
+            <div id="istTimeDisplay" class="text-[10px] font-medium text-slate-400 pl-0.5">Loading IST time...</div>
+          </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-1.5" id="navigationTabs">
+          <button onclick="switchTab('my-tasks')" id="btn-my-tasks" class="px-3 py-1.5 bg-indigo-600 text-white font-medium text-xs rounded-xl shadow-sm hover:bg-indigo-700 transition">My Tasks</button>
+          <button onclick="switchTab('reports')" id="btn-reports" class="px-3 py-1.5 bg-white text-slate-600 font-medium text-xs rounded-xl border border-slate-200 hover:bg-slate-50 transition">Daily Reports</button>
+          
+          <button onclick="switchTab('management')" id="btn-management" class="mgmt-only mgmt-hidden px-3 py-1.5 bg-white text-slate-600 font-medium text-xs rounded-xl border border-slate-200 hover:bg-slate-50 transition">Management Overview</button>
+          <button onclick="switchTab('task-setup')" id="btn-task-setup" class="mgmt-only mgmt-hidden px-3 py-1.5 bg-white text-slate-600 font-medium text-xs rounded-xl border border-slate-200 hover:bg-slate-50 transition">Task Setup</button>
+          <button onclick="switchTab('team-setup')" id="btn-team-setup" class="mgmt-only mgmt-hidden px-3 py-1.5 bg-amber-500 text-white font-medium text-xs rounded-xl shadow-sm hover:bg-amber-600 transition">Team Setup</button>
+        </div>
+      </header>
+
+      <!-- TAB 1: MY TASKS VIEW -->
+      <div id="tab-my-tasks" class="block space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div>
+              <h2 class="text-xs font-bold text-slate-800">My Assigned Tasks</h2>
+              <p class="text-[10px] text-slate-400">All active tasks explicitly assigned to you.</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="myTasksCompletionFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Task States</option>
+                <option value="pending" selected>Pending Tasks Only</option>
+                <option value="completed">Completed Tasks Only</option>
+              </select>
+
+              <select id="myTasksSortOption" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="name">Sort: Task Name (A-Z)</option>
+                <option value="status">Sort: Status (Pending First)</option>
+                <option value="time">Sort: Last Updated Time</option>
+              </select>
+
+              <button onclick="toggleGroupByDashboard('myTasks')" id="btn-group-myTasks" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 hover:bg-slate-100 transition">
+                🗂️ Group by Dashboard
+              </button>
+
+              <div class="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200/60 text-[11px]">
+                <button onclick="switchMyTaskSubView('list')" id="btn-sub-list" class="px-2.5 py-1 bg-white text-slate-800 font-bold rounded-lg shadow-sm transition">
+                  List View
+                </button>
+                <button onclick="switchMyTaskSubView('calendar')" id="btn-sub-calendar" class="px-2.5 py-1 text-slate-500 hover:text-slate-800 font-medium rounded-lg transition flex items-center gap-1">
+                  📅 View Schedule
+                </button>
+              </div>
+              <button onclick="loadTasks()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh</button>
+            </div>
+          </div>
+          
+          <div id="myTaskListView">
+            <table class="w-full text-left text-[11px] whitespace-nowrap align-middle">
+              <thead>
+                <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+                  <th class="pb-2.5 font-semibold px-2 w-8 text-center sortable-th" onclick="toggleSort('myTasks','completed')">STATUS<span class="sort-arrow" id="arrow-myTasks-completed">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('myTasks','taskName')">TASK NAME<span class="sort-arrow" id="arrow-myTasks-taskName">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('myTasks','taskType')">TYPE<span class="sort-arrow" id="arrow-myTasks-taskType">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('myTasks','isActive')">STATE<span class="sort-arrow" id="arrow-myTasks-isActive">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('myTasks','dashboardName')">DASHBOARD<span class="sort-arrow" id="arrow-myTasks-dashboardName">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold px-2 text-right sortable-th" onclick="toggleSort('myTasks','lastUpdated')">LAST UPDATED<span class="sort-arrow" id="arrow-myTasks-lastUpdated">▲▼</span></th>
+                </tr>
+              </thead>
+              <tbody id="myTaskListTable" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="py-6 text-center text-slate-400">Loading tasks...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="myTaskCalendarView" class="hidden">
+            <div id="calendarWeeklyGrid" class="grid grid-cols-1 md:grid-cols-7 gap-3 pt-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: DAILY REPORTS (WITH SUB-TABS) -->
+      <div id="tab-reports" class="hidden space-y-4">
+        
+        <!-- SUB-TAB NAVIGATION HEADER -->
+        <div class="bg-white p-2 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap justify-between items-center gap-2">
+          <div class="inline-flex p-1 bg-slate-100 rounded-xl space-x-1">
+            <button onclick="switchReportSubTab('progress')" id="btn-subtab-progress" class="px-3 py-1.5 bg-white text-indigo-700 font-bold text-xs rounded-lg shadow-sm transition">
+              📊 Task Completion Progress
+            </button>
+            <button onclick="switchReportSubTab('workload')" id="btn-subtab-workload" class="px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition">
+              ⚖️ Workload Management
+            </button>
+            <button onclick="switchReportSubTab('completion')" id="btn-subtab-completion" class="px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition">
+              📋 Daily Completion
+            </button>
+          </div>
+          <button onclick="exportReportCSV()" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-semibold text-[11px] rounded-xl border border-indigo-200/60 transition flex items-center gap-1.5">
+            📥 Export Shift Report (CSV)
+          </button>
+        </div>
+
+        <!-- SUB-TAB 1: TASK COMPLETION PROGRESS -->
+        <div id="subtab-progress-view" class="block space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Report Date (CST Shift)</label>
+              <input type="date" id="reportDateFilter" onchange="onReportDateChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter By Name</label>
+              <select id="reportNameFilter" onchange="onReportNameFilterChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+                <option value="all">All Team Members</option>
+              </select>
+            </div>
+            <div class="ml-auto">
+              <button onclick="loadReports()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh Report</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Active Assigned Tasks</p>
+              <p id="statTotalActive" class="text-2xl font-extrabold text-indigo-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Shift Completed Tasks</p>
+              <p id="statCompleted" class="text-2xl font-extrabold text-emerald-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Shift Records Completed</p>
+              <p id="statRecords" class="text-2xl font-extrabold text-sky-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Shift Pending Tasks</p>
+              <p id="statPending" class="text-2xl font-extrabold text-amber-500 mt-0.5">0</p>
+            </div>
+          </div>
+
+          <!-- ACTIVE TASKS BY DAY (PROGRESS VIEW) -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Active Tasks by Day (CST Shift)</h3>
+                <p class="text-[10px] text-slate-400">Distribution of active department tasks across the week. Click a day to view its task list.</p>
+              </div>
+            </div>
+            <div id="progressByDayGrid" class="grid grid-cols-4 sm:grid-cols-7 gap-2"></div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Team Shift Completion Progress</h3>
+                <p class="text-[10px] text-slate-400">Click on any numeric cell to view task details for that team member.</p>
+              </div>
+              <span id="reportDateBadge" class="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-md">Loading report date...</span>
+            </div>
+
+            <table class="w-full text-left text-[11px] whitespace-nowrap">
+              <thead>
+                <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+                  <th class="pb-2.5 font-semibold sortable-th" onclick="toggleSort('progress','name')">Team Member<span class="sort-arrow" id="arrow-progress-name">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold sortable-th" onclick="toggleSort('progress','title')">Title<span class="sort-arrow" id="arrow-progress-title">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','completed')">Completed Tasks<span class="sort-arrow" id="arrow-progress-completed">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','records')">Records Count<span class="sort-arrow" id="arrow-progress-records">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','pending')">Pending Tasks<span class="sort-arrow" id="arrow-progress-pending">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('progress','totalAssigned')">Total Assigned Tasks<span class="sort-arrow" id="arrow-progress-totalAssigned">▲▼</span></th>
+                  <th class="pb-2.5 text-right font-semibold sortable-th" onclick="toggleSort('progress','rate')">Shift Completion %<span class="sort-arrow" id="arrow-progress-rate">▲▼</span></th>
+                </tr>
+              </thead>
+              <tbody id="userProgressReportTable" class="divide-y divide-slate-100">
+                <tr><td colspan="7" class="py-6 text-center text-slate-400">Loading progress summary...</td></tr>
+              </tbody>
+            </table>
+
+            <!-- FOOTER: TOTAL DEPARTMENT TASKS -->
+            <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+              <span class="text-[11px] font-semibold text-slate-500">Total Department Tasks (Active)</span>
+              <span id="footerTotalDeptTasks" class="text-sm font-extrabold text-indigo-600">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 2: WORKLOAD MANAGEMENT -->
+        <div id="subtab-workload-view" class="hidden space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Department Tasks</p>
+              <p id="workloadTotalTasks" class="text-2xl font-extrabold text-indigo-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Team Average Task Load</p>
+              <p id="workloadAvgTasks" class="text-2xl font-extrabold text-amber-500 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Active Team Members</p>
+              <p id="workloadTotalMembers" class="text-2xl font-extrabold text-emerald-600 mt-0.5">0</p>
+            </div>
+          </div>
+
+          <!-- TASKS BY DAY (WORKLOAD VIEW) -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Tasks by Day of Week</h3>
+                <p class="text-[10px] text-slate-400">How many active tasks land on each day. Red = heavy day, blue = light day. Click a day to see its tasks.</p>
+              </div>
+            </div>
+            <div id="workloadByDayGrid" class="grid grid-cols-4 sm:grid-cols-7 gap-2"></div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Department Workload Distribution Analysis</h3>
+                <p class="text-[10px] text-slate-400">Evaluates active assigned tasks against average team load to optimize task distribution.</p>
+              </div>
+              <button onclick="loadWorkloadManagement()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh Analysis</button>
+            </div>
+
+            <table class="w-full text-left text-[11px] whitespace-nowrap">
+              <thead>
+                <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+                  <th class="pb-2.5 font-semibold sortable-th" onclick="toggleSort('workload','name')">Team Member<span class="sort-arrow" id="arrow-workload-name">▲▼</span></th>
+                  <th class="pb-2.5 font-semibold sortable-th" onclick="toggleSort('workload','title')">Title<span class="sort-arrow" id="arrow-workload-title">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('workload','count')">Active Assigned Tasks<span class="sort-arrow" id="arrow-workload-count">▲▼</span></th>
+                  <th class="pb-2.5 text-center font-semibold sortable-th" onclick="toggleSort('workload','diff')">Deviation vs. Team Avg<span class="sort-arrow" id="arrow-workload-diff">▲▼</span></th>
+                  <th class="pb-2.5 text-right font-semibold">Workload Level</th>
+                </tr>
+              </thead>
+              <tbody id="workloadTableBody" class="divide-y divide-slate-100">
+                <tr><td colspan="5" class="py-6 text-center text-slate-400">Analyzing team workload...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SUB-TAB 3: DAILY COMPLETION MATRIX -->
+        <div id="subtab-completion-view" class="hidden space-y-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-end gap-4">
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">From Date (CST Shift)</label>
+              <input type="date" id="completionDateFrom" onchange="onCompletionDateRangeChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">To Date (CST Shift)</label>
+              <input type="date" id="completionDateTo" onchange="onCompletionDateRangeChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter By Name</label>
+              <select id="completionNameFilter" onchange="onCompletionNameFilterChange()" class="border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+                <option value="all">All Team Members</option>
+              </select>
+            </div>
+            <div class="ml-auto">
+              <button onclick="loadCompletionReport()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh Report</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Team Members in View</p>
+              <p id="completionStatMembers" class="text-2xl font-extrabold text-indigo-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tasks Completed in Range</p>
+              <p id="completionStatCompleted" class="text-2xl font-extrabold text-emerald-600 mt-0.5">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+              <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Records Completed in Range</p>
+              <p id="completionStatRecords" class="text-2xl font-extrabold text-sky-600 mt-0.5">0</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-800">Daily Completion Status by Team Member</h3>
+                <p class="text-[10px] text-slate-400">Tasks logged as Completed in the Personal Task Status sheet, per person per day. Dash = nothing logged that day. Date range changes what's shown.</p>
+              </div>
+              <span id="completionRangeBadge" class="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-md">Loading range...</span>
+            </div>
+
+            <table class="w-full text-left text-[11px] whitespace-nowrap">
+              <thead id="completionMatrixHead"></thead>
+              <tbody id="completionMatrixBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: MANAGEMENT OVERVIEW -->
+      <div id="tab-management" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div>
+              <h2 class="text-xs font-bold text-slate-800">All Master Tasks Overview</h2>
+              <p class="text-[10px] text-slate-400">Complete Master Registry of all configured departmental tasks and details.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="mgmtStatusFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Tasks</option>
+                <option value="active" selected>Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+              <select id="mgmtScheduleFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Schedules</option>
+                <option value="recurring">Recurring Only</option>
+                <option value="nonrecurring">Non-Recurring Only</option>
+                <option value="noschedule">🎯 No Schedule Only</option>
+              </select>
+              <select id="mgmtAssigneeFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Assignees</option>
+                <option value="none">🎯 No Assignee Only</option>
+              </select>
+              <button onclick="toggleGroupByDashboard('mgmt')" id="btn-group-mgmt" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 hover:bg-slate-100 transition">
+                🗂️ Group by Dashboard
+              </button>
+              <button onclick="loadTasks()" class="text-[11px] text-indigo-600 font-medium hover:text-indigo-800 transition">Refresh Master List</button>
+            </div>
+          </div>
+          
+          <table class="w-full text-left text-[11px] whitespace-nowrap align-middle">
+            <thead>
+              <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','taskName')">Task Name<span class="sort-arrow" id="arrow-mgmt-taskName">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','taskType')">Type<span class="sort-arrow" id="arrow-mgmt-taskType">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','isActive')">State<span class="sort-arrow" id="arrow-mgmt-isActive">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','dashboardName')">Dashboard<span class="sort-arrow" id="arrow-mgmt-dashboardName">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','assignedCount')">Assigned Team<span class="sort-arrow" id="arrow-mgmt-assignedCount">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','scheduleCount')">Schedule<span class="sort-arrow" id="arrow-mgmt-scheduleCount">▲▼</span></th>
+                <th class="pb-2.5 text-right font-semibold px-2 sortable-th" onclick="toggleSort('mgmt','lastUpdated')">Last Updated<span class="sort-arrow" id="arrow-mgmt-lastUpdated">▲▼</span></th>
+              </tr>
+            </thead>
+            <tbody id="mgmtMasterTaskTable" class="divide-y divide-slate-100">
+              <tr><td colspan="7" class="py-6 text-center text-slate-400">Loading master registry...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 4: TASK SETUP -->
+      <div id="tab-task-setup" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <div>
+              <h2 class="text-xs font-bold text-slate-800">Task Setup & Master Config</h2>
+              <p class="text-[10px] text-slate-400">Create, edit, assign, activate/deactivate, and schedule recurring tasks.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="setupStatusFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Statuses</option>
+                <option value="active" selected>Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+              <select id="setupScheduleFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Schedules</option>
+                <option value="recurring">Recurring Only</option>
+                <option value="nonrecurring">Non-Recurring Only</option>
+                <option value="noschedule">🎯 No Schedule Only</option>
+              </select>
+              <select id="setupAssigneeFilter" onchange="loadTasks()" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 focus:outline-none">
+                <option value="all">All Assignees</option>
+                <option value="none">🎯 No Assignee Only</option>
+              </select>
+              <button onclick="toggleGroupByDashboard('setup')" id="btn-group-setup" class="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 hover:bg-slate-100 transition">
+                🗂️ Group by Dashboard
+              </button>
+              <button onclick="findAndShowDuplicates()" class="text-[11px] bg-amber-50 text-amber-700 border border-amber-200 rounded-xl px-2 py-1 font-semibold hover:bg-amber-100 transition">
+                🧹 Find & Clean Duplicates
+              </button>
+              <button onclick="openTaskModal()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition">+ Add Task</button>
+            </div>
+          </div>
+          <table class="w-full text-left text-[11px] whitespace-nowrap align-middle">
+            <thead>
+              <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('setup','taskName')">TASK NAME<span class="sort-arrow" id="arrow-setup-taskName">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('setup','taskType')">TYPE<span class="sort-arrow" id="arrow-setup-taskType">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('setup','isActive')">STATE<span class="sort-arrow" id="arrow-setup-isActive">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('setup','dashboardName')">DASHBOARD<span class="sort-arrow" id="arrow-setup-dashboardName">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('setup','assignedCount')">ASSIGNED TO<span class="sort-arrow" id="arrow-setup-assignedCount">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('setup','scheduleCount')">SCHEDULE<span class="sort-arrow" id="arrow-setup-scheduleCount">▲▼</span></th>
+                <th class="pb-2.5 text-right font-semibold px-2">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="taskSetupTable" class="divide-y divide-slate-100">
+              <tr><td colspan="7" class="py-6 text-center text-slate-400">Loading tasks...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 5: TEAM SETUP -->
+      <div id="tab-team-setup" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 overflow-x-auto">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h2 class="text-xs font-bold text-slate-800">Team Members & Working Days</h2>
+              <p class="text-[10px] text-slate-400">Manage team profiles, permissions, and active workdays.</p>
+            </div>
+            <button onclick="openUserModal()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition">+ Add Member</button>
+          </div>
+          <table class="w-full text-left text-[11px] whitespace-nowrap align-middle">
+            <thead>
+              <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('team','name')">Name<span class="sort-arrow" id="arrow-team-name">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('team','title')">Title<span class="sort-arrow" id="arrow-team-title">▲▼</span></th>
+                <th class="pb-2.5 font-semibold px-2 sortable-th" onclick="toggleSort('team','workingDaysCount')">Working Days (CST Shift)<span class="sort-arrow" id="arrow-team-workingDaysCount">▲▼</span></th>
+                <th class="pb-2.5 text-right font-semibold px-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="teamTableBody" class="divide-y divide-slate-100">
+              <tr><td colspan="4" class="py-6 text-center text-slate-400">Loading members...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MODAL FOR DRILL-DOWN TASK DETAILS -->
+    <div id="taskDrilldownModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-xl border border-slate-100 max-h-[85vh] flex flex-col">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3 flex-shrink-0">
+          <div>
+            <h3 id="drilldownModalTitle" class="font-bold text-sm text-slate-900">Task Details</h3>
+            <p id="drilldownModalSubtitle" class="text-[10px] text-slate-400 mt-0.5">Filtered view of tasks</p>
+          </div>
+          <button onclick="closeDrilldownModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+        
+        <div class="overflow-y-auto flex-1 pr-1">
+          <table class="w-full text-left text-[11px] whitespace-nowrap align-middle">
+            <thead>
+              <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider sticky top-0 bg-white">
+                <th class="pb-2 font-semibold px-1">TASK NAME</th>
+                <th class="pb-2 font-semibold px-1">TYPE</th>
+                <th class="pb-2 font-semibold px-1">STATUS</th>
+                <th class="pb-2 font-semibold px-1 text-right">DASHBOARD</th>
+              </tr>
+            </thead>
+            <tbody id="drilldownModalTableBody" class="divide-y divide-slate-100">
+              <tr><td colspan="4" class="py-6 text-center text-slate-400">Loading task details...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pt-2 text-right border-t border-slate-100 flex-shrink-0">
+          <button onclick="closeDrilldownModal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL FOR ASSIGNEES VIEW -->
+    <div id="assigneesModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-3 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+          <h3 id="assigneesModalTitle" class="font-bold text-xs text-slate-900 truncate pr-2">Assigned Team Members</h3>
+          <button onclick="closeAssigneesModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+        <div id="assigneesModalList" class="space-y-1 max-h-56 overflow-y-auto pr-1"></div>
+        <div class="pt-2 text-right">
+          <button onclick="closeAssigneesModal()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg transition">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL FOR SCHEDULE VIEW -->
+    <div id="scheduleModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-3 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+          <h3 id="scheduleModalTitle" class="font-bold text-xs text-slate-900 truncate pr-2">Task Schedule Details</h3>
+          <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+        <div id="scheduleModalList" class="space-y-1 max-h-56 overflow-y-auto pr-1"></div>
+        <div class="pt-2 text-right">
+          <button onclick="closeScheduleModal()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium rounded-lg transition">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL FOR TASK SETUP -->
+    <div id="taskModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3.5 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <h3 id="taskModalTitle" class="font-bold text-sm text-slate-900">Add Task</h3>
+        <input type="hidden" id="taskRow" value="">
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Task Name</label>
+          <input type="text" id="taskNameInput" oninput="checkTaskNameLive()" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. BB CS - Pending Conversation SMS">
+          <p id="taskNameDuplicateWarning" class="hidden mt-1 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">⚠️ A task with this name already exists.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Task Type</label>
+            <select id="taskTypeInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+              <option value="Report">Report</option>
+              <option value="List View">List View</option>
+              <option value="Google Sheet">Google Sheet</option>
+              <option value="Temp Project">Temp Project</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Task Status</label>
+            <select id="taskIsActiveInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+              <option value="true">Active Task</option>
+              <option value="false">Inactive / Paused Task</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Dashboard Name</label>
+            <input type="text" id="dashboardNameInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. BB Open Cases Tab">
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Dashboard URL</label>
+            <input type="url" id="taskLinkInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="https://yourinstance.lightning.force.com/...">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Assign To</label>
+          <div class="flex flex-wrap gap-1 mb-1.5">
+            <button type="button" onclick="assignByTitle('Coordinator')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title Coordinator">👥 Assign to Coordinators</button>
+            <button type="button" onclick="assignByTitle('Sr. Coordinator')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title Sr. Coordinator">Assign to Sr. Coordinators</button>
+            <button type="button" onclick="assignByTitle('CS Supervisor')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title CS Supervisor">Assign to CS Supervisors</button>
+            <button type="button" onclick="assignByTitle('Escalation Supervisor')" class="text-[10px] font-medium text-slate-600 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 rounded-lg px-2 py-1 transition" title="Check every team member with the title Escalation Supervisor">Assign to Escalation Supervisors</button>
+          </div>
+          <div id="taskAssigneesList" class="max-h-28 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1"></div>
+        </div>
+
+        <div class="pt-0.5">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="taskIsRecurring" onchange="toggleRecurringOptions()" class="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300">
+            <span class="text-xs font-medium text-slate-700">Recurring Task?</span>
+          </label>
+        </div>
+
+        <div id="recurringDaysContainer" class="hidden pl-2 space-y-1.5">
+          <div class="flex justify-between items-center">
+            <label class="block text-[10px] font-semibold text-slate-400 uppercase">Recurring Days (CST Shift)</label>
+            <button type="button" onclick="syncWithAssigneeSchedule()" class="text-[10px] text-indigo-600 hover:underline font-medium">⚡ Sync Schedule</button>
+          </div>
+          <div class="flex flex-wrap gap-1">
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Mon" class="rec-day"> Mon</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Tue" class="rec-day"> Tue</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Wed" class="rec-day"> Wed</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Thu" class="rec-day"> Thu</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Fri" class="rec-day"> Fri</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Sat" class="rec-day"> Sat</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Sun" class="rec-day"> Sun</label>
+          </div>
+        </div>
+
+        <div id="dueDateContainer" class="pl-2 space-y-1.5">
+          <label class="block text-[10px] font-semibold text-slate-400 uppercase">Due Date (optional)</label>
+          <input type="date" id="taskDueDateInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+          <p class="text-[10px] text-slate-400">Only applies to non-recurring, one-off tasks. Leave blank if this task has no deadline.</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button onclick="closeTaskModal()" class="px-3 py-1.5 text-slate-500 text-xs font-medium hover:bg-slate-100 rounded-xl transition">Cancel</button>
+          <button onclick="saveTaskModal()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 transition">Save Task</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL FOR TEAM SETUP -->
+    <div id="userModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-3.5 shadow-xl border border-slate-100">
+        <h3 id="userModalTitle" class="font-bold text-sm text-slate-900">Add Team Member</h3>
+        <input type="hidden" id="userRow" value="">
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+          <input type="text" id="userNameInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. Nora Amreen Sultana">
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Title</label>
+          <select id="userTitleInput" class="w-full border border-slate-200 rounded-xl p-2 text-xs bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            <option value="Assistant Manager">Assistant Manager</option>
+            <option value="CS Supervisor">CS Supervisor</option>
+            <option value="Escalation Supervisor">Escalation Supervisor</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Sr. Coordinator">Sr. Coordinator</option>
+            <option value="Coordinator">Coordinator</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Working Days (CST Shift)</label>
+          <div class="flex flex-wrap gap-1">
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Mon" class="work-day" checked> Mon</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Tue" class="work-day" checked> Tue</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Wed" class="work-day" checked> Wed</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Thu" class="work-day" checked> Thu</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Fri" class="work-day" checked> Fri</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Sat" class="work-day"> Sat</label>
+            <label class="text-[11px] bg-slate-100 px-2 py-0.5 rounded-lg cursor-pointer"><input type="checkbox" value="Sun" class="work-day"> Sun</label>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button onclick="closeUserModal()" class="px-3 py-1.5 text-slate-500 text-xs font-medium hover:bg-slate-100 rounded-xl transition">Cancel</button>
+          <button onclick="saveUserModal()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 transition">Save Member</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL FOR DUPLICATE TASK CLEANUP -->
+    <div id="duplicatesModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-xl border border-slate-100 max-h-[85vh] flex flex-col">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3 flex-shrink-0">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">🧹 Duplicate Task Cleanup</h3>
+            <p id="duplicatesModalSubtitle" class="text-[10px] text-slate-400 mt-0.5">Tasks with the exact same name (active tasks only)</p>
+          </div>
+          <button onclick="closeDuplicatesModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+
+        <div id="duplicatesModalBody" class="overflow-y-auto flex-1 pr-1 space-y-4">
+          <div class="py-6 text-center text-slate-400 text-xs">Scanning for duplicates...</div>
+        </div>
+
+        <div class="pt-2 text-right border-t border-slate-100 flex-shrink-0 space-x-2">
+          <button onclick="closeDuplicatesModal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Close</button>
+          <button id="btnMergeDuplicates" onclick="mergeSelectedDuplicates()" class="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-xl hover:bg-amber-700 transition">Merge & Clean Selected</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: MARK SHARED TASK DONE (personal vs. team-wide) -->
+    <div id="markDoneModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">👥 Mark Shared Report Done</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5" id="markDoneModalTaskName">Task Name</p>
+          </div>
+          <button onclick="closeMarkDoneModal(true)" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+
+        <p class="text-[11px] text-slate-500">This report is shared with: <span class="font-medium text-slate-700" id="markDoneModalAssignees"></span></p>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Records Completed (required)</label>
+          <input type="number" id="markDoneCountInput" min="1" step="1" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. 25">
+          <p id="markDoneCountError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">Enter a valid count of at least 1.</p>
+        </div>
+
+        <label class="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl cursor-pointer">
+          <input type="checkbox" id="markDoneForAllCheckbox" class="mt-0.5 w-3.5 h-3.5 text-amber-600 rounded border-amber-300 focus:ring-amber-500/20">
+          <span class="text-[11px] text-amber-800">
+            <span class="font-semibold">Mark complete for the whole team today.</span><br>
+            This removes it from everyone else's pending queue too. Leave unchecked to only mark <em>your</em> copy done.
+          </span>
+        </label>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+          <button onclick="closeMarkDoneModal(true)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Cancel</button>
+          <button onclick="confirmMarkDone()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 transition">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SINGLE TASK COMPLETION (record count entry) -->
+    <div id="singleCompleteModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Mark Task Done</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5" id="singleCompleteModalTaskName">Task Name</p>
+          </div>
+          <button onclick="closeSingleCompleteModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Records Completed (required)</label>
+          <input type="number" id="singleCompleteCountInput" min="1" step="1" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none" placeholder="e.g. 25">
+          <p id="singleCompleteCountError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1">Enter a valid count of at least 1.</p>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+          <button onclick="closeSingleCompleteModal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Cancel</button>
+          <button onclick="confirmSingleTaskComplete()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 transition">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: HAND OFF / DEFER SHARED TASK FOR TODAY -->
+    <div id="deferModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl border border-slate-100">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">⏭ Hand Off for Today</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5" id="deferModalTaskName">Task Name</p>
+          </div>
+          <button onclick="closeDeferModal()" class="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+        </div>
+
+        <p class="text-[11px] text-slate-500">This removes it from <em>your</em> pending queue for today only — it stays in the queue for the other assignees, and comes back to your queue tomorrow.</p>
+
+        <div>
+          <label class="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Covering it today (optional)</label>
+          <select id="deferModalCoveredBy" class="w-full border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none">
+            <option value="">Not specified</option>
+          </select>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2 border-t border-slate-100">
+          <button onclick="closeDeferModal()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition">Cancel</button>
+          <button onclick="confirmDefer()" class="px-3 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-xl hover:bg-amber-700 transition">Confirm Hand-Off</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let memberList = [];
+      let masterTaskList = [];
+      let selectedUser = null;
+      let selectedReportDate = '';
+      let selectedReportName = '';
+      let reportStatusByRow = {};
+
+      let completionReport = null;
+      let selectedCompletionFrom = '';
+      let selectedCompletionTo = '';
+      let selectedCompletionName = '';
+
+      const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+      // ==========================================
+      // SORTING & GROUPING STATE (client-side, re-renders cached data only)
+      // ==========================================
+      const sortState = {
+        myTasks:  { col: null, dir: 1 },
+        mgmt:     { col: null, dir: 1 },
+        setup:    { col: null, dir: 1 },
+        team:     { col: null, dir: 1 },
+        progress: { col: null, dir: 1 },
+        workload: { col: null, dir: 1 }
+      };
+
+      const groupState = {
+        myTasks: false,
+        mgmt: false,
+        setup: false
+      };
+
+      let duplicateGroupsCache = [];
+
+      // Extracts a comparable value for a given task row + column key
+      function getTaskSortValue(t, col) {
+        switch (col) {
+          case 'taskName': return (t.taskName || '').toLowerCase();
+          case 'taskType': return (t.taskType || '').toLowerCase();
+          case 'isActive': return t.isActive ? 1 : 0;
+          case 'completed': return (t.myCompleted !== undefined ? t.myCompleted : t.completed) ? 1 : 0;
+          case 'dashboardName': return (t.dashboardName || '').toLowerCase();
+          case 'lastUpdated': return t.lastUpdated || '';
+          case 'assignedCount': return t.assignedTo.length === 0 ? 9999 : t.assignedTo.length;
+          case 'scheduleCount': return t.isRecurring ? t.recurringDays.length : -1;
+          default: return '';
+        }
+      }
+
+      function compareValues(va, vb) {
+        if (va < vb) return -1;
+        if (va > vb) return 1;
+        return 0;
+      }
+
+      function applySort(list, tableKey, valueGetter) {
+        const state = sortState[tableKey];
+        if (!state || !state.col) return list;
+        const sorted = list.slice().sort((a, b) => compareValues(valueGetter(a, state.col), valueGetter(b, state.col)) * state.dir);
+        return sorted;
+      }
+
+      function toggleSort(tableKey, col) {
+        const state = sortState[tableKey] || (sortState[tableKey] = { col: null, dir: 1 });
+        if (state.col === col) {
+          state.dir *= -1;
+        } else {
+          state.col = col;
+          state.dir = 1;
+        }
+        refreshSortArrows(tableKey);
+        rerenderTable(tableKey);
+      }
+
+      function refreshSortArrows(tableKey) {
+        const state = sortState[tableKey];
+        document.querySelectorAll(`[id^="arrow-${tableKey}-"]`).forEach(el => {
+          const col = el.id.replace(`arrow-${tableKey}-`, '');
+          if (state.col === col) {
+            el.textContent = state.dir === 1 ? '▲' : '▼';
+            el.classList.add('active');
+          } else {
+            el.textContent = '▲▼';
+            el.classList.remove('active');
+          }
+        });
+      }
+
+      // Re-renders a table purely from already-cached data (no server round trip)
+      function rerenderTable(tableKey) {
+        if (tableKey === 'myTasks') {
+          renderAllTaskViews(masterTaskList);
+        } else if (tableKey === 'mgmt') {
+          const mgmtFilterVal = document.getElementById('mgmtStatusFilter') ? document.getElementById('mgmtStatusFilter').value : 'all';
+          const mgmtScheduleVal = document.getElementById('mgmtScheduleFilter') ? document.getElementById('mgmtScheduleFilter').value : 'all';
+          const mgmtAssigneeVal = document.getElementById('mgmtAssigneeFilter') ? document.getElementById('mgmtAssigneeFilter').value : 'all';
+          renderMgmtMasterOverviewTable(filterTasksByAssignee(filterTasksBySchedule(filterTasksByStatus(masterTaskList, mgmtFilterVal), mgmtScheduleVal), mgmtAssigneeVal));
+        } else if (tableKey === 'setup') {
+          const setupFilterVal = document.getElementById('setupStatusFilter') ? document.getElementById('setupStatusFilter').value : 'active';
+          const setupScheduleVal = document.getElementById('setupScheduleFilter') ? document.getElementById('setupScheduleFilter').value : 'all';
+          const setupAssigneeVal = document.getElementById('setupAssigneeFilter') ? document.getElementById('setupAssigneeFilter').value : 'all';
+          renderTaskSetupTable(filterTasksByAssignee(filterTasksBySchedule(filterTasksByStatus(masterTaskList, setupFilterVal), setupScheduleVal), setupAssigneeVal));
+        } else if (tableKey === 'team') {
+          loadTeamTable(memberList);
+        } else if (tableKey === 'progress') {
+          renderReports();
+        } else if (tableKey === 'workload') {
+          renderWorkloadManagement();
+        }
+      }
+
+      function toggleGroupByDashboard(tableKey) {
+        groupState[tableKey] = !groupState[tableKey];
+        const btn = document.getElementById('btn-group-' + tableKey);
+        if (btn) {
+          btn.className = groupState[tableKey]
+            ? 'text-[11px] bg-indigo-600 text-white border border-indigo-600 rounded-xl px-2 py-1 font-semibold transition'
+            : 'text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 font-medium text-slate-700 hover:bg-slate-100 transition';
+        }
+        rerenderTable(tableKey);
+      }
+
+      // Groups a task list by Dashboard Name. Returns array of [dashboardLabel, tasks[]]
+      // sorted alphabetically, with tasks lacking a dashboard grouped under "No Dashboard Assigned".
+      function groupTasksByDashboard(tasks) {
+        const groups = {};
+        tasks.forEach(t => {
+          const label = (t.dashboardName && t.dashboardName.trim()) ? t.dashboardName.trim() : 'No Dashboard Assigned';
+          if (!groups[label]) groups[label] = [];
+          groups[label].push(t);
+        });
+        return Object.keys(groups)
+          .sort((a, b) => {
+            if (a === 'No Dashboard Assigned') return 1;
+            if (b === 'No Dashboard Assigned') return -1;
+            return a.localeCompare(b);
+          })
+          .map(label => [label, groups[label]]);
+      }
+
+      window.addEventListener('load', function() {
+        updateDualClocks();
+        setInterval(updateDualClocks, 60000);
+        fetchTeamData();
+      });
+
+      function getCstDate() {
+        const now = new Date();
+        const cstStr = now.toLocaleString("en-US", { timeZone: "America/Chicago" });
+        return new Date(cstStr);
+      }
+
+      function getTodayCstDay() {
+        const cstDate = getCstDate();
+        return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][cstDate.getDay()];
+      }
+
+      // Today's CST date as yyyy-MM-dd, matching the server's getTodayCstDateStr_().
+      // en-CA formats to YYYY-MM-DD so the string is directly comparable.
+      function getTodayCstDateStr() {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date());
+      }
+
+      // Weekday abbreviation ("Mon".."Sun") for a yyyy-MM-dd CST date string.
+      // Built from UTC date math (like the server) so the result is locale-proof.
+      function getCstWeekdayName(dateStr) {
+        const parts = String(dateStr || '').split('-');
+        if (parts.length !== 3) return '';
+        const d = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+        return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()];
+      }
+
+      // Active tasks scheduled on a given CST date. Mirrors the server's
+      // isScheduledToday: non-recurring tasks run every day; recurring tasks run
+      // only on weekdays included in their recurringDays list.
+      function getTasksScheduledOn(tasks, dateStr) {
+        const day = getCstWeekdayName(dateStr);
+        return (tasks || []).filter(t =>
+          t.isActive === true && (!t.isRecurring || t.recurringDays.includes(day))
+        );
+      }
+
+      function updateDualClocks() {
+        const now = new Date();
+        const cstOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Chicago' };
+        const cstFormatted = now.toLocaleDateString('en-US', cstOptions);
+        document.getElementById('cstTimeDisplay').innerText = `🕒 CST Shift: ${cstFormatted}`;
+
+        const istOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' };
+        const istFormatted = now.toLocaleDateString('en-US', istOptions);
+        document.getElementById('istTimeDisplay').innerText = `🌏 IST Local Time: ${istFormatted}`;
+      }
+
+      function fetchTeamData(callback) {
+        const gatewayDropdown = document.getElementById('gatewayUserSelect');
+        if (memberList.length === 0) {
+          gatewayDropdown.innerHTML = '<option value="">Loading team profiles...</option>';
+        }
+
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          handleTeamDataError("Google Apps Script context not detected.");
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(data => {
+            memberList = (data && data.members) ? data.members : [];
+
+            if (memberList.length === 0) {
+              gatewayDropdown.innerHTML = '<option value="">No active profiles found</option>';
+              return;
+            }
+
+            gatewayDropdown.innerHTML = memberList.map(m => `
+              <option value="${m.name}">${m.name} (${m.title})</option>
+            `).join('');
+
+            if (selectedUser) {
+              const updatedSelf = memberList.find(m => m.name === selectedUser.name);
+              if (updatedSelf) {
+                selectedUser.title = updatedSelf.title;
+                document.getElementById('activeUserBadge').innerText = `${selectedUser.name} (${selectedUser.title})`;
+              }
+            }
+
+            loadTeamTable(memberList);
+            if (callback) callback();
+          })
+          .withFailureHandler(err => {
+            handleTeamDataError(err);
+          })
+          .getTeamData();
+      }
+
+      function handleTeamDataError(err) {
+        console.error("Error fetching team data:", err);
+        const gatewayDropdown = document.getElementById('gatewayUserSelect');
+        gatewayDropdown.innerHTML = '<option value="">⚠️ Error loading profiles</option>';
+      }
+
+      function isManagement(title) {
+        if (!title) return false;
+        const cleanTitle = String(title).toLowerCase().trim();
+        if (cleanTitle.indexOf('coordinator') !== -1) return false;
+
+        return cleanTitle.indexOf('manager') !== -1 || 
+               cleanTitle.indexOf('supervisor') !== -1 || 
+               cleanTitle.indexOf('am') !== -1;
+      }
+
+      function updateManagementTabsVisibility() {
+        const canManage = selectedUser ? isManagement(selectedUser.title) : false;
+        document.querySelectorAll('.mgmt-only').forEach(el => {
+          if (canManage) {
+            el.classList.remove('mgmt-hidden');
+          } else {
+            el.classList.add('mgmt-hidden');
+          }
+        });
+      }
+
+      function enterPortal() {
+        const gatewayDropdown = document.getElementById('gatewayUserSelect');
+        const selectedName = gatewayDropdown.value;
+
+        if (!selectedName) {
+          alert('Please select a valid profile to enter.');
+          return;
+        }
+
+        const foundMember = memberList.find(m => m.name === selectedName);
+        selectedUser = {
+          name: selectedName,
+          title: foundMember ? foundMember.title : 'Coordinator'
+        };
+
+        document.getElementById('activeUserBadge').innerText = `${selectedUser.name} (${selectedUser.title})`;
+        updateManagementTabsVisibility();
+
+        document.getElementById('landingScreen').classList.add('hidden');
+        document.getElementById('mainAppScreen').classList.remove('hidden');
+
+        switchTab('my-tasks');
+      }
+
+      function exitToLanding() {
+        document.getElementById('mainAppScreen').classList.add('hidden');
+        document.getElementById('landingScreen').classList.remove('hidden');
+      }
+
+      function switchTab(tab) {
+        ['my-tasks', 'reports', 'management', 'task-setup', 'team-setup'].forEach(t => {
+          const tabEl = document.getElementById('tab-' + t);
+          const btnEl = document.getElementById('btn-' + t);
+          if (tabEl) tabEl.classList.add('hidden');
+          if (btnEl) {
+            const isMgmtHidden = btnEl.classList.contains('mgmt-hidden');
+            btnEl.className = 'px-3 py-1.5 bg-white text-slate-600 font-medium text-xs rounded-xl border border-slate-200 hover:bg-slate-50 transition' + 
+                              (btnEl.classList.contains('mgmt-only') ? ' mgmt-only' : '') + 
+                              (isMgmtHidden ? ' mgmt-hidden' : '');
+          }
+        });
+
+        const currentTabEl = document.getElementById('tab-' + tab);
+        const currentBtnEl = document.getElementById('btn-' + tab);
+
+        if (currentTabEl) currentTabEl.classList.remove('hidden');
+        if (currentBtnEl) {
+          const isMgmtHidden = currentBtnEl.classList.contains('mgmt-hidden');
+          currentBtnEl.className = 'px-3 py-1.5 bg-indigo-600 text-white font-medium text-xs rounded-xl shadow-sm hover:bg-indigo-700 transition' + 
+                                   (currentBtnEl.classList.contains('mgmt-only') ? ' mgmt-only' : '') + 
+                                   (isMgmtHidden ? ' mgmt-hidden' : '');
+        }
+
+        updateManagementTabsVisibility();
+
+        if (tab === 'my-tasks' || tab === 'management' || tab === 'task-setup') loadTasks();
+        if (tab === 'reports') {
+          loadTasks();
+          switchReportSubTab('progress');
+        }
+      }
+
+      function switchReportSubTab(sub) {
+        const btnProg = document.getElementById('btn-subtab-progress');
+        const btnWork = document.getElementById('btn-subtab-workload');
+        const btnComp = document.getElementById('btn-subtab-completion');
+        const viewProg = document.getElementById('subtab-progress-view');
+        const viewWork = document.getElementById('subtab-workload-view');
+        const viewComp = document.getElementById('subtab-completion-view');
+
+        const progInactive = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+        const workInactive = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+        const compInactive = 'px-3 py-1.5 text-slate-600 hover:text-slate-900 font-medium text-xs rounded-lg transition';
+        const active = 'px-3 py-1.5 bg-white text-indigo-700 font-bold text-xs rounded-lg shadow-sm transition';
+
+        if (sub === 'workload') {
+          viewProg.classList.add('hidden');
+          viewComp.classList.add('hidden');
+          viewWork.classList.remove('hidden');
+
+          btnWork.className = active;
+          btnProg.className = progInactive;
+          btnComp.className = compInactive;
+
+          loadWorkloadManagement();
+        } else if (sub === 'completion') {
+          viewProg.classList.add('hidden');
+          viewWork.classList.add('hidden');
+          viewComp.classList.remove('hidden');
+
+          btnComp.className = active;
+          btnProg.className = progInactive;
+          btnWork.className = workInactive;
+
+          loadCompletionReport();
+        } else {
+          viewWork.classList.add('hidden');
+          viewComp.classList.add('hidden');
+          viewProg.classList.remove('hidden');
+
+          btnProg.className = active;
+          btnWork.className = workInactive;
+          btnComp.className = compInactive;
+
+          loadReports();
+        }
+      }
+
+      function switchMyTaskSubView(viewType) {
+        const listViewEl = document.getElementById('myTaskListView');
+        const calendarViewEl = document.getElementById('myTaskCalendarView');
+        const btnList = document.getElementById('btn-sub-list');
+        const btnCalendar = document.getElementById('btn-sub-calendar');
+
+        if (viewType === 'calendar') {
+          listViewEl.classList.add('hidden');
+          calendarViewEl.classList.remove('hidden');
+
+          btnCalendar.className = 'px-2.5 py-1 bg-white text-slate-800 font-bold rounded-lg shadow-sm transition flex items-center gap-1';
+          btnList.className = 'px-2.5 py-1 text-slate-500 hover:text-slate-800 font-medium rounded-lg transition';
+          
+          renderWeeklyCalendarView();
+        } else {
+          calendarViewEl.classList.add('hidden');
+          listViewEl.classList.remove('hidden');
+
+          btnList.className = 'px-2.5 py-1 bg-white text-slate-800 font-bold rounded-lg shadow-sm transition';
+          btnCalendar.className = 'px-2.5 py-1 text-slate-500 hover:text-slate-800 font-medium rounded-lg transition flex items-center gap-1';
+        }
+      }
+
+      let personalStatusByRow = {};
+      let pendingShareToggleCheckbox = null;
+      let pendingSingleToggleCheckbox = null;
+      let markDoneModalRow = null;
+      let deferModalRow = null;
+      let singleCompleteModalRow = null;
+
+      function loadTasks() {
+        if (typeof google === 'undefined' || !google.script || !google.script.run) return;
+
+        // Tasks are the primary data — fetch and render them immediately, on their
+        // own. Personal (per-user, per-day) completion status for shared tasks is a
+        // secondary enrichment layer fetched in parallel; it must never block or
+        // delay the core My Tasks list, and a failure there should never leave the
+        // whole list blank.
+        fetchAndRenderTasks();
+
+        google.script.run
+          .withSuccessHandler(statuses => {
+            personalStatusByRow = buildPersonalStatusMap(statuses);
+            // Re-render with the now-available personal status data, using the
+            // already-cached task list (no extra round trip needed).
+            if (masterTaskList && masterTaskList.length >= 0) {
+              renderAllTaskViews(masterTaskList);
+            }
+          })
+          .withFailureHandler(err => {
+            console.error("Error loading personal task statuses:", err);
+            personalStatusByRow = {};
+          })
+          .getTodayPersonalTaskStatuses();
+      }
+
+      function fetchAndRenderTasks() {
+        google.script.run
+          .withSuccessHandler(renderAllTaskViews)
+          .withFailureHandler(err => {
+            console.error("Error loading tasks:", err);
+            const myTasksTbody = document.getElementById('myTaskListTable');
+            if (myTasksTbody) {
+              myTasksTbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs text-rose-500">⚠️ Couldn\'t load tasks — click Refresh to try again.</td></tr>';
+            }
+          })
+          .getAllTasksMaster();
+      }
+
+      function buildPersonalStatusMap(statuses) {
+        const map = {};
+        (statuses || []).forEach(s => {
+          if (!map[s.row]) map[s.row] = {};
+          map[s.row][s.userName] = { status: s.status, note: s.note, recordsCount: s.recordsCount || 0 };
+        });
+        return map;
+      }
+
+      function getMyPersonalStatus(task, userName) {
+        if (!task || task.assignedTo.length <= 1) return null;
+        const rowMap = personalStatusByRow[task.row];
+        if (!rowMap) return null;
+        const entry = rowMap[userName];
+        return entry ? entry.status : null;
+      }
+
+      // Returns the count of records this user completed for a task today (0 if none).
+      // Unlike getMyPersonalStatus this has no shared-task guard, because single-assignee
+      // completions also write a personal status row carrying the record count.
+      function getMyPersonalCount(task, userName) {
+        if (!task) return 0;
+        const rowMap = personalStatusByRow[task.row];
+        if (!rowMap) return 0;
+        const entry = rowMap[userName];
+        return entry && entry.recordsCount ? entry.recordsCount : 0;
+      }
+
+      // ---- Daily Reports per-date helpers (reportStatusByRow for the chosen date) ----
+
+      function getReportStatusEntry(task, userName) {
+        if (!task) return null;
+        const rowMap = reportStatusByRow[task.row];
+        if (!rowMap) return null;
+        return rowMap[userName] || null;
+      }
+
+      // Is this task "completed" for this member on the chosen report date?
+      // A member is credited when their personal status says Completed for that
+      // date, OR when the task was completed for the whole team on that date
+      // (the global flag's completedDate matches). Recurring tasks finished on an
+      // earlier day correctly show pending again.
+      function isMemberCompleted(task, memberName) {
+        const entry = getReportStatusEntry(task, memberName);
+        if (entry && entry.status === 'Completed') return true;
+        return task.completed === true && task.completedDate === selectedReportDate;
+      }
+
+      // Record count credited to a member for a task on the report date. Only the
+      // completing user's personal status carries a count.
+      function getMemberRecords(task, memberName) {
+        const entry = getReportStatusEntry(task, memberName);
+        if (entry && entry.status === 'Completed') return entry.recordsCount || 0;
+        return 0;
+      }
+
+      function filterTasksByStatus(tasks, filterVal) {
+        if (filterVal === 'active') {
+          return tasks.filter(t => t.isActive === true);
+        } else if (filterVal === 'inactive') {
+          return tasks.filter(t => t.isActive === false);
+        }
+        return tasks;
+      }
+
+      function filterTasksBySchedule(tasks, filterVal) {
+        if (filterVal === 'recurring') {
+          return tasks.filter(t => t.isRecurring === true);
+        } else if (filterVal === 'nonrecurring') {
+          return tasks.filter(t => t.isRecurring !== true);
+        } else if (filterVal === 'noschedule') {
+          return tasks.filter(t => t.isRecurring !== true && !t.dueDate);
+        }
+        return tasks;
+      }
+
+      function filterTasksByAssignee(tasks, filterVal) {
+        if (filterVal === 'none') {
+          return tasks.filter(t => t.assignedTo.length === 0);
+        }
+        return tasks;
+      }
+
+      function renderAllTaskViews(tasks) {
+        masterTaskList = tasks || [];
+        const activeUser = selectedUser ? selectedUser.name : '';
+
+        const myCompletionFilter = document.getElementById('myTasksCompletionFilter') ? document.getElementById('myTasksCompletionFilter').value : 'pending';
+        const mySortOption = document.getElementById('myTasksSortOption') ? document.getElementById('myTasksSortOption').value : 'name';
+
+        const myTasksTbody = document.getElementById('myTaskListTable');
+
+        // "My Tasks" always shows the logged-in user's full workload: every ACTIVE
+        // task explicitly assigned to them, regardless of which day it is scheduled
+        // on. Tasks with no assignee are never listed here — they aren't assigned to
+        // anyone, so they stay invisible in every user's My Tasks until someone is
+        // assigned to work on them.
+        let myFiltered = masterTaskList.filter(t => {
+          if (!t.isActive) return false;
+          return t.assignedTo.includes(activeUser);
+        });
+
+          // Enrich with derived per-user completion state. For single-assignee tasks
+          // (the vast majority) this simply mirrors the existing shared "completed"
+          // field, so behavior there is unchanged. Shared/multi-assignee tasks get
+          // their own personal-completion + hand-off layer on top.
+          myFiltered = myFiltered.map(t => {
+            const personalStatus = getMyPersonalStatus(t, activeUser);
+            const isSharedTask = t.assignedTo.length > 1;
+            const myCompleted = t.completed === true || (isSharedTask && personalStatus === 'Completed');
+            const myDeferredToday = isSharedTask && !t.completed && personalStatus === 'Deferred';
+            return Object.assign({}, t, {
+              isSharedTask: isSharedTask,
+              myPersonalStatus: personalStatus,
+              myCompleted: myCompleted,
+              myDeferredToday: myDeferredToday
+            });
+          });
+
+          if (myCompletionFilter === 'pending') {
+            myFiltered = myFiltered.filter(t => !t.myCompleted && !t.myDeferredToday);
+          } else if (myCompletionFilter === 'completed') {
+            myFiltered = myFiltered.filter(t => t.myCompleted);
+          }
+
+          // Header-click sort takes priority over the dropdown sort once a header has been clicked.
+          if (sortState.myTasks.col) {
+            myFiltered = applySort(myFiltered, 'myTasks', getTaskSortValue);
+          } else {
+            myFiltered.sort((a, b) => {
+              if (mySortOption === 'status') {
+                return (a.myCompleted === b.myCompleted) ? 0 : a.myCompleted ? 1 : -1;
+              } else if (mySortOption === 'time') {
+                return (b.lastUpdated || '').localeCompare(a.lastUpdated || '');
+              } else {
+                return a.taskName.localeCompare(b.taskName);
+              }
+            });
+          }
+
+          if (myFiltered.length === 0) {
+            myTasksTbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-xs text-slate-400">No tasks assigned to you match the current filter.</td></tr>';
+          } else if (groupState.myTasks) {
+            myTasksTbody.innerHTML = groupTasksByDashboard(myFiltered).map(([label, groupTasks]) => `
+              <tr class="group-header-row"><td colspan="6" class="px-2">🗂️ ${label} <span class="normal-case font-medium text-indigo-400">(${groupTasks.length})</span></td></tr>
+              ${groupTasks.map(t => renderMyTaskRow(t)).join('')}
+            `).join('');
+          } else {
+            myTasksTbody.innerHTML = myFiltered.map(t => renderMyTaskRow(t)).join('');
+          }
+
+        renderWeeklyCalendarView();
+
+        const mgmtFilterVal = document.getElementById('mgmtStatusFilter') ? document.getElementById('mgmtStatusFilter').value : 'all';
+        const mgmtScheduleVal = document.getElementById('mgmtScheduleFilter') ? document.getElementById('mgmtScheduleFilter').value : 'all';
+        const mgmtAssigneeVal = document.getElementById('mgmtAssigneeFilter') ? document.getElementById('mgmtAssigneeFilter').value : 'all';
+        renderMgmtMasterOverviewTable(filterTasksByAssignee(filterTasksBySchedule(filterTasksByStatus(masterTaskList, mgmtFilterVal), mgmtScheduleVal), mgmtAssigneeVal));
+
+        const setupFilterVal = document.getElementById('setupStatusFilter') ? document.getElementById('setupStatusFilter').value : 'active';
+        const setupScheduleVal = document.getElementById('setupScheduleFilter') ? document.getElementById('setupScheduleFilter').value : 'all';
+        const setupAssigneeVal = document.getElementById('setupAssigneeFilter') ? document.getElementById('setupAssigneeFilter').value : 'all';
+        renderTaskSetupTable(filterTasksByAssignee(filterTasksBySchedule(filterTasksByStatus(masterTaskList, setupFilterVal), setupScheduleVal), setupAssigneeVal));
+
+        if (!document.getElementById('tab-reports').classList.contains('hidden')) {
+          if (!document.getElementById('subtab-progress-view').classList.contains('hidden')) {
+            fetchReportStatuses();
+          } else {
+            renderWorkloadManagement();
+          }
+        }
+      }
+
+      function renderWeeklyCalendarView() {
+        const gridEl = document.getElementById('calendarWeeklyGrid');
+        if (!gridEl) return;
+
+        const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const activeUser = selectedUser ? selectedUser.name : '';
+        const activeMember = memberList.find(m => m.name === activeUser);
+        const userWorkDays = activeMember ? activeMember.workingDays : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+        const cstDate = getCstDate();
+        const todayCstDay = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][cstDate.getDay()];
+
+        const activeOnlyTasks = masterTaskList.filter(t => t.isActive === true);
+
+        gridEl.innerHTML = days.map(day => {
+          const isUserWorking = userWorkDays.includes(day);
+          const isToday = day === todayCstDay;
+
+          const dayTasks = activeOnlyTasks.filter(t => {
+            const isAssigned = t.assignedTo.includes(activeUser);
+            if (!isAssigned) return false;
+
+            if (!t.isRecurring || t.recurringDays.length === 0) return true;
+            return t.recurringDays.includes(day);
+          });
+
+          return `
+            <div class="bg-slate-50/70 border ${isToday ? 'border-indigo-400 ring-2 ring-indigo-500/10' : 'border-slate-200/80'} rounded-2xl p-3 flex flex-col space-y-2 min-h-[220px]">
+              <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                <span class="font-bold text-xs ${isToday ? 'text-indigo-600' : 'text-slate-800'}">${day}</span>
+                ${isToday ? '<span class="text-[9px] font-bold bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md">CST SHIFT TODAY</span>' : ''}
+              </div>
+
+              ${!isUserWorking ? `
+                <div class="flex-1 flex items-center justify-center text-center p-2">
+                  <span class="text-[10px] text-slate-400 italic">Off Shift</span>
+                </div>
+              ` : `
+                <div class="space-y-1.5 flex-1 overflow-y-auto">
+                  ${dayTasks.length === 0 ? `
+                    <div class="text-[10px] text-slate-400 py-2 text-center">No Active Tasks</div>
+                  ` : dayTasks.map(t => `
+                    <div class="p-2 bg-white rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
+                      <div class="font-semibold text-[10px] text-slate-800 leading-tight truncate" title="${t.taskName}">${t.taskName}</div>
+                      <div class="flex items-center justify-between text-[9px]">
+                        <span class="bg-slate-100 text-slate-500 px-1 py-0.5 rounded">${t.taskType || 'Report'}</span>
+                        ${t.dashboardLink ? `<a href="${t.dashboardLink}" target="_blank" class="text-indigo-600 font-medium hover:underline">Link ↗</a>` : ''}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          `;
+        }).join('');
+      }
+
+      // ==========================================
+      // TASKS-BY-DAY (Workload + Progress widgets)
+      // ==========================================
+
+      function computeTasksByDay(tasks) {
+        const activeTasks = (tasks || []).filter(t => t.isActive === true);
+        const map = {};
+        WEEK_DAYS.forEach(day => {
+          map[day] = activeTasks.filter(t => {
+            if (!t.isRecurring || t.recurringDays.length === 0) return true;
+            return t.recurringDays.includes(day);
+          });
+        });
+        return map;
+      }
+
+      function renderTasksByDayGrid(containerId, tasksByDay) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+
+        const counts = WEEK_DAYS.map(d => tasksByDay[d].length);
+        const totalCount = counts.reduce((a, b) => a + b, 0);
+        const avg = totalCount / WEEK_DAYS.length;
+        const todayCstDay = getTodayCstDay();
+
+        el.innerHTML = WEEK_DAYS.map(day => {
+          const count = tasksByDay[day].length;
+          const diff = count - avg;
+          const isToday = day === todayCstDay;
+
+          let colorClasses = 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+          if (totalCount > 0 && diff > 1) {
+            colorClasses = 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100';
+          } else if (totalCount > 0 && diff < -1) {
+            colorClasses = 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100';
+          }
+
+          return `
+            <button type="button" onclick="openDayTasksModal('${day}')"
+              class="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border ${colorClasses} ${isToday ? 'ring-2 ring-indigo-400' : ''} transition cursor-pointer">
+              <span class="text-[9px] font-bold uppercase tracking-wide">${day}${isToday ? ' •' : ''}</span>
+              <span class="text-lg font-extrabold leading-none">${count}</span>
+            </button>
+          `;
+        }).join('');
+      }
+
+      function openDayTasksModal(day) {
+        const tasksByDay = computeTasksByDay(masterTaskList);
+        const dayTasks = tasksByDay[day] || [];
+        showTaskListModal(`${day} — Active Tasks Scheduled`, `Showing ${dayTasks.length} task(s) for ${day}`, dayTasks);
+      }
+
+      function getDashboardLinkHtml(task) {
+        const linkUrl = task.dashboardLink || task.dashboardUrl || '';
+        const nameVal = task.dashboardName ? String(task.dashboardName).trim() : '';
+        const displayName = nameVal || (linkUrl ? 'Link ↗' : '—');
+
+        if (!linkUrl && !nameVal) return '<span class="text-slate-300">—</span>';
+
+        if (linkUrl) {
+          return `<a href="${linkUrl}" target="_blank" title="${displayName}" class="text-indigo-600 hover:underline font-medium inline-flex items-center gap-1 max-w-[200px] truncate leading-none">
+            <span class="truncate">${displayName}</span>
+            <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+          </a>`;
+        }
+
+        return `<span class="text-slate-700 font-medium max-w-[200px] truncate block" title="${displayName}">${displayName}</span>`;
+      }
+
+      function getAssigneesButtonHtml(task) {
+        const assigneesCount = task.assignedTo.length;
+        if (assigneesCount === 0) return '<span class="text-amber-700 text-[11px] font-medium bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded-md whitespace-nowrap" title="Not visible in anyone\'s My Tasks until assigned">⚠️ No Assignee</span>';
+        return `<button onclick="showAssigneesModal(${task.row})" class="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50/80 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition whitespace-nowrap">👥 View Assignees (${assigneesCount})</button>`;
+      }
+
+      function getScheduleButtonHtml(task) {
+        if (!task.isRecurring) {
+          if (task.dueDate) {
+            return `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60" title="Due ${task.dueDate}">📆 Due ${task.dueDate}</span>`;
+          }
+          return '<span class="text-slate-400 font-medium text-[11px] italic">No Schedule</span>';
+        }
+        const daysCount = task.recurringDays.length;
+        return `<button onclick="showScheduleModal(${task.row})" class="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50/80 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition whitespace-nowrap">📅 View Days (${daysCount})</button>`;
+      }
+
+      function getStatusBadgeHtml(isActive) {
+        if (isActive === false) {
+          return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-semibold bg-rose-50 text-rose-600 border border-rose-200/60">Paused / Inactive</span>`;
+        }
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200/60">Active</span>`;
+      }
+
+      function renderMyTaskRow(t) {
+        const linkBtn = getDashboardLinkHtml(t);
+        const typeTag = `<span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[9px] font-medium border border-slate-200/50">${t.taskType || 'Report'}</span>`;
+        const statusTag = getStatusBadgeHtml(t.isActive);
+        const lastUpdatedDetails = t.lastUpdated ? `<div class="text-slate-700 font-medium leading-tight">${t.lastUpdated}</div><div class="text-[9px] text-slate-400">by ${t.updatedBy || 'System'}</div>` : '<span class="text-slate-300">—</span>';
+
+        const isShared = t.isSharedTask === true;
+        const myCompleted = t.myCompleted === true;
+        const myDeferred = t.myDeferredToday === true;
+        const isChecked = t.completed === true || myCompleted;
+        const myCount = myCompleted ? getMyPersonalCount(t, selectedUser ? selectedUser.name : '') : 0;
+
+        // Single-assignee tasks keep the exact original checkbox behavior (one click
+        // completes it, full stop). Shared/multi-assignee tasks route through a
+        // confirmation step so completing your own copy doesn't silently clear it
+        // for everyone else on the team.
+        const checkboxOnChange = isShared
+          ? `handleSharedToggle(${t.row}, this.checked, ${t.completed ? 'true' : 'false'}, this)`
+          : `handleToggle(${t.row}, this.checked, this)`;
+
+        let extraRow = '';
+        if (myCompleted && myCount > 0) {
+          extraRow += `<div class="mt-0.5 text-[9px] font-semibold text-emerald-600">${myCount} record${myCount === 1 ? '' : 's'} completed</div>`;
+        }
+        if (isShared && myCompleted && !t.completed) {
+          extraRow += `<div class="mt-0.5"><button onclick="promptMarkCompleteForAll(${t.row})" class="text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline">🌐 Mark Complete for All (Team)</button></div>`;
+        } else if (isShared && myDeferred) {
+          const coveredBy = personalStatusByRow[t.row] && personalStatusByRow[t.row][selectedUser ? selectedUser.name : ''] ? personalStatusByRow[t.row][selectedUser.name].note : '';
+          extraRow += `<div class="mt-0.5 text-[9px] font-medium text-amber-600">⏭ Deferred for today${coveredBy ? ' · covered by ' + coveredBy : ''} · <button onclick="undeferTask(${t.row})" class="hover:underline">Undo</button></div>`;
+        }
+
+        const deferBtn = (isShared && !myCompleted && !myDeferred && !t.completed)
+          ? `<button onclick="openDeferModal(${t.row})" title="Hand this off for today without completing it" class="text-slate-400 hover:text-amber-600 text-[10px] ml-1.5 align-middle">⏭</button>`
+          : '';
+
+        const sharedTag = isShared ? ' <span class="text-[8px] font-semibold text-indigo-400 align-middle" title="Shared task — completing your copy does not clear it for the rest of the team unless you mark it complete for all">👥 SHARED</span>' : '';
+
+        return `
+          <tr class="hover:bg-slate-50/50 transition ${myDeferred ? 'opacity-50' : ''}">
+            <td class="py-2.5 px-2 text-center">
+              <input type="checkbox" ${isChecked ? 'checked' : ''} 
+                onchange="${checkboxOnChange}"
+                class="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500/20 cursor-pointer align-middle">
+            </td>
+            <td class="py-2.5 px-2 font-medium max-w-[280px] ${isChecked ? 'line-through text-slate-400' : 'text-slate-800'}" title="${t.taskName}">
+              <div class="truncate">${t.taskName}${sharedTag}${deferBtn}</div>
+              ${extraRow}
+            </td>
+            <td class="py-2.5 px-2">${typeTag}</td>
+            <td class="py-2.5 px-2">${statusTag}</td>
+            <td class="py-2.5 px-2">${linkBtn}</td>
+            <td class="py-2.5 px-2 text-right">${lastUpdatedDetails}</td>
+          </tr>
+        `;
+      }
+
+      function renderMgmtTaskRow(t) {
+        const assigneesBtn = getAssigneesButtonHtml(t);
+        const scheduleBtn = getScheduleButtonHtml(t);
+        const linkDisplay = getDashboardLinkHtml(t);
+        const statusTag = getStatusBadgeHtml(t.isActive);
+        const lastUpdatedDetails = t.lastUpdated ? `<div class="text-slate-700 font-medium leading-tight">${t.lastUpdated}</div><div class="text-[9px] text-slate-400">by ${t.updatedBy || 'System'}</div>` : '<span class="text-slate-300">—</span>';
+
+        return `
+          <tr class="hover:bg-slate-50/50 transition">
+            <td class="py-2.5 px-2 font-medium text-slate-800 max-w-[200px] truncate" title="${t.taskName}">${t.taskName}</td>
+            <td class="py-2.5 px-2"><span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[9px] font-medium border border-slate-200/50">${t.taskType || 'Report'}</span></td>
+            <td class="py-2.5 px-2">${statusTag}</td>
+            <td class="py-2.5 px-2">${linkDisplay}</td>
+            <td class="py-2.5 px-2">${assigneesBtn}</td>
+            <td class="py-2.5 px-2">${scheduleBtn}</td>
+            <td class="py-2.5 px-2 text-right">${lastUpdatedDetails}</td>
+          </tr>
+        `;
+      }
+
+      function renderMgmtMasterOverviewTable(tasks) {
+        const tbody = document.getElementById('mgmtMasterTaskTable');
+        if (!tbody) return;
+
+        const sortedTasks = applySort(tasks, 'mgmt', getTaskSortValue);
+
+        if (sortedTasks.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-400">No master tasks matching filter criteria.</td></tr>';
+        } else if (groupState.mgmt) {
+          tbody.innerHTML = groupTasksByDashboard(sortedTasks).map(([label, groupTasks]) => `
+            <tr class="group-header-row"><td colspan="7" class="px-2">🗂️ ${label} <span class="normal-case font-medium text-indigo-400">(${groupTasks.length})</span></td></tr>
+            ${groupTasks.map(t => renderMgmtTaskRow(t)).join('')}
+          `).join('');
+        } else {
+          tbody.innerHTML = sortedTasks.map(t => renderMgmtTaskRow(t)).join('');
+        }
+      }
+
+      function renderSetupTaskRow(t) {
+        return `
+          <tr class="hover:bg-slate-50/50 transition">
+            <td class="py-2.5 px-2 font-medium text-slate-800 max-w-[220px] truncate" title="${t.taskName}">${t.taskName}</td>
+            <td class="py-2.5 px-2"><span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[9px] font-medium border border-slate-200/50">${t.taskType || 'Report'}</span></td>
+            <td class="py-2.5 px-2">${getStatusBadgeHtml(t.isActive)}</td>
+            <td class="py-2.5 px-2">${getDashboardLinkHtml(t)}</td>
+            <td class="py-2.5 px-2">${getAssigneesButtonHtml(t)}</td>
+            <td class="py-2.5 px-2">${getScheduleButtonHtml(t)}</td>
+            <td class="py-2.5 px-2 text-right space-x-2">
+              <button onclick="toggleTaskActiveState(${t.row}, ${!t.isActive})" class="text-amber-600 hover:text-amber-800 font-medium text-[11px]">
+                ${t.isActive ? 'Pause' : 'Activate'}
+              </button>
+              <button onclick="openTaskModal(${t.row})" class="text-indigo-600 hover:text-indigo-800 font-medium text-[11px]">Edit</button>
+              <button onclick="deleteTask(${t.row})" class="text-rose-500 hover:text-rose-700 font-medium text-[11px]">Remove</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      function renderTaskSetupTable(tasks) {
+        const tbody = document.getElementById('taskSetupTable');
+        if (!tbody) return;
+
+        const sortedTasks = applySort(tasks, 'setup', getTaskSortValue);
+
+        if (sortedTasks.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-400">No tasks found matching filter.</td></tr>';
+        } else if (groupState.setup) {
+          tbody.innerHTML = groupTasksByDashboard(sortedTasks).map(([label, groupTasks]) => `
+            <tr class="group-header-row"><td colspan="7" class="px-2">🗂️ ${label} <span class="normal-case font-medium text-indigo-400">(${groupTasks.length})</span></td></tr>
+            ${groupTasks.map(t => renderSetupTaskRow(t)).join('')}
+          `).join('');
+        } else {
+          tbody.innerHTML = sortedTasks.map(t => renderSetupTaskRow(t)).join('');
+        }
+      }
+
+      // ==========================================
+      // DUPLICATE TASK DETECTION (Task Setup)
+      // ==========================================
+
+      function normalizeTaskNameClient(name) {
+        return (name || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+
+      // Live check while typing in the Add/Edit Task modal
+      function checkTaskNameLive() {
+        const warningEl = document.getElementById('taskNameDuplicateWarning');
+        const name = document.getElementById('taskNameInput').value;
+        const currentRow = document.getElementById('taskRow').value;
+        const match = findDuplicateTaskByName(name, currentRow);
+
+        if (match) {
+          warningEl.textContent = `⚠️ A task named "${match.taskName}" already exists (last updated by ${match.updatedBy || 'System'}).`;
+          warningEl.classList.remove('hidden');
+        } else {
+          warningEl.classList.add('hidden');
+        }
+      }
+
+      function findDuplicateTaskByName(name, excludeRow) {
+        const normalized = normalizeTaskNameClient(name);
+        if (!normalized) return null;
+        return masterTaskList.find(t =>
+          t.isActive &&
+          normalizeTaskNameClient(t.taskName) === normalized &&
+          String(t.row) !== String(excludeRow)
+        ) || null;
+      }
+
+      // "Find & Clean Duplicates" tool — scans currently loaded active tasks for
+      // exact-name matches (case/space-insensitive) and lets the user pick which
+      // row to keep per group; the rest get merged in and removed from the sheet.
+      function findAndShowDuplicates() {
+        const groups = {};
+        masterTaskList.filter(t => t.isActive).forEach(t => {
+          const key = normalizeTaskNameClient(t.taskName);
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(t);
+        });
+
+        duplicateGroupsCache = Object.values(groups).filter(g => g.length > 1);
+        renderDuplicatesModal();
+        document.getElementById('duplicatesModal').classList.remove('hidden');
+      }
+
+      function renderDuplicatesModal() {
+        const subtitle = document.getElementById('duplicatesModalSubtitle');
+        const body = document.getElementById('duplicatesModalBody');
+        const mergeBtn = document.getElementById('btnMergeDuplicates');
+
+        if (duplicateGroupsCache.length === 0) {
+          subtitle.textContent = 'No exact-name duplicates found among active tasks. 🎉';
+          body.innerHTML = '<div class="py-6 text-center text-slate-400 text-xs">Nothing to clean up right now.</div>';
+          mergeBtn.classList.add('hidden');
+          return;
+        }
+
+        mergeBtn.classList.remove('hidden');
+        subtitle.textContent = `Found ${duplicateGroupsCache.length} duplicate group(s). Pick which entry to keep in each group — the rest will be merged in and removed.`;
+
+        body.innerHTML = duplicateGroupsCache.map((group, gIdx) => `
+          <div class="border border-slate-200 rounded-xl p-3 space-y-2">
+            <div class="text-xs font-bold text-slate-800">"${group[0].taskName}" <span class="text-slate-400 font-medium">(${group.length} copies)</span></div>
+            <div class="space-y-1.5">
+              ${group.map((t, tIdx) => `
+                <label class="flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer hover:bg-slate-100/70 transition">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <input type="radio" name="dupKeep_${gIdx}" value="${t.row}" ${tIdx === 0 ? 'checked' : ''} class="dup-keep-radio flex-shrink-0">
+                    <div class="min-w-0">
+                      <div class="text-[11px] font-semibold text-slate-800">Row ${t.row}${tIdx === 0 ? ' <span class="text-emerald-600">(newest)</span>' : ''}</div>
+                      <div class="text-[10px] text-slate-500 truncate">Dashboard: ${t.dashboardName || '—'} • Assigned: ${t.assignedTo.length === 0 ? 'No Assignee' : t.assignedTo.join(', ')}</div>
+                      ${t.assignedTo.length === 0 ? '<div class="text-[9px] text-amber-600 font-medium mt-0.5">⚠️ Won\'t appear in anyone\'s My Tasks until assigned</div>' : ''}
+                    </div>
+                  </div>
+                  <div class="text-[9px] text-slate-400 flex-shrink-0 text-right">${t.lastUpdated ? `Updated ${t.lastUpdated}<br>by ${t.updatedBy || 'System'}` : ''}</div>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function closeDuplicatesModal() {
+        document.getElementById('duplicatesModal').classList.add('hidden');
+      }
+
+      function mergeSelectedDuplicates() {
+        if (duplicateGroupsCache.length === 0) return;
+
+        const mergeGroups = duplicateGroupsCache.map((group, gIdx) => {
+          const selected = document.querySelector(`input[name="dupKeep_${gIdx}"]:checked`);
+          const keepRow = selected ? selected.value : group[0].row;
+          const duplicateRows = group.map(t => t.row).filter(r => String(r) !== String(keepRow));
+          return { keepRow: keepRow, duplicateRows: duplicateRows };
+        });
+
+        const totalDuplicates = mergeGroups.reduce((sum, g) => sum + g.duplicateRows.length, 0);
+        if (!confirm(`This will merge ${mergeGroups.length} group(s) and permanently remove ${totalDuplicates} duplicate row(s) from the Task Master sheet. Continue?`)) {
+          return;
+        }
+
+        const mergeBtn = document.getElementById('btnMergeDuplicates');
+        mergeBtn.disabled = true;
+        mergeBtn.textContent = 'Merging...';
+
+        google.script.run
+          .withSuccessHandler(() => {
+            mergeBtn.disabled = false;
+            mergeBtn.textContent = 'Merge & Clean Selected';
+            closeDuplicatesModal();
+            loadTasks();
+          })
+          .withFailureHandler(err => {
+            mergeBtn.disabled = false;
+            mergeBtn.textContent = 'Merge & Clean Selected';
+            alert('Error merging duplicates: ' + err);
+          })
+          .mergeDuplicateTaskGroups(mergeGroups);
+      }
+
+      function toggleTaskActiveState(row, setStatus) {
+        google.script.run
+          .withSuccessHandler(() => loadTasks())
+          .setTaskActiveStatus(row, setStatus, selectedUser ? selectedUser.name : 'System');
+      }
+
+      function showAssigneesModal(row) {
+        const task = masterTaskList.find(t => t.row === row);
+        if (!task) return;
+
+        document.getElementById('assigneesModalTitle').innerText = task.taskName;
+        const listEl = document.getElementById('assigneesModalList');
+        
+        if (task.assignedTo.length === 0) {
+          listEl.innerHTML = '<div class="text-[11px] text-amber-600 py-1.5">⚠️ No assignee set — this task won\'t appear in anyone\'s My Tasks list until someone is assigned.</div>';
+        } else {
+          listEl.innerHTML = task.assignedTo.map(name => `
+            <div class="flex items-center justify-between p-1.5 bg-slate-50 rounded-lg text-[11px] font-medium text-slate-700 border border-slate-100">
+              <span>👤 ${name}</span>
+            </div>
+          `).join('');
+        }
+
+        document.getElementById('assigneesModal').classList.remove('hidden');
+      }
+
+      function closeAssigneesModal() {
+        document.getElementById('assigneesModal').classList.add('hidden');
+      }
+
+      function showScheduleModal(row) {
+        const task = masterTaskList.find(t => t.row === row);
+        if (!task) return;
+
+        document.getElementById('scheduleModalTitle').innerText = task.taskName;
+        const listEl = document.getElementById('scheduleModalList');
+        
+        if (!task.isRecurring || task.recurringDays.length === 0) {
+          listEl.innerHTML = '<div class="text-[11px] text-slate-400 py-1.5">Marked recurring, but no specific days have been selected yet.</div>';
+        } else {
+          listEl.innerHTML = task.recurringDays.map(day => `
+            <div class="flex items-center justify-between p-1.5 bg-indigo-50/50 rounded-lg text-[11px] font-medium text-indigo-700 border border-indigo-100">
+              <span>📅 ${day}</span>
+            </div>
+          `).join('');
+        }
+
+        document.getElementById('scheduleModal').classList.remove('hidden');
+      }
+
+      function closeScheduleModal() {
+        document.getElementById('scheduleModal').classList.add('hidden');
+      }
+
+      function openTaskModal(row = null) {
+        document.getElementById('taskRow').value = row || '';
+        const task = row ? masterTaskList.find(t => t.row === row) : null;
+
+        document.getElementById('taskModalTitle').innerText = task ? 'Edit Task' : 'Add New Task';
+        document.getElementById('taskNameDuplicateWarning').classList.add('hidden');
+        document.getElementById('taskNameInput').value = task ? task.taskName : '';
+        document.getElementById('taskTypeInput').value = task ? (task.taskType || 'Report') : 'Report';
+        document.getElementById('taskIsActiveInput').value = task ? (task.isActive ? 'true' : 'false') : 'true';
+        document.getElementById('dashboardNameInput').value = task ? (task.dashboardName || '') : '';
+        document.getElementById('taskLinkInput').value = task ? (task.dashboardLink || task.dashboardUrl || '') : '';
+
+        const currentAssignees = task ? task.assignedTo : [];
+        const assignListEl = document.getElementById('taskAssigneesList');
+        assignListEl.innerHTML = memberList.map(m => `
+          <label class="flex items-center justify-between p-1 text-[11px] hover:bg-slate-50 rounded cursor-pointer">
+            <span class="text-slate-700">${m.name} <span class="text-slate-400">(${m.title})</span></span>
+            <input type="checkbox" value="${m.name}" ${currentAssignees.includes(m.name) ? 'checked' : ''} onchange="syncWithAssigneeSchedule()" class="task-assignee-cb w-3.5 h-3.5 text-indigo-600 rounded">
+          </label>
+        `).join('');
+
+        const isRec = task ? task.isRecurring : false;
+        document.getElementById('taskIsRecurring').checked = isRec;
+        document.getElementById('taskDueDateInput').value = task ? (task.dueDateISO || '') : '';
+        toggleRecurringOptions();
+
+        const recDays = task ? task.recurringDays : [];
+        document.querySelectorAll('.rec-day').forEach(cb => {
+          cb.checked = recDays.includes(cb.value);
+        });
+
+        document.getElementById('taskModal').classList.remove('hidden');
+      }
+
+      function syncWithAssigneeSchedule() {
+        const selectedAssignees = Array.from(document.querySelectorAll('.task-assignee-cb:checked')).map(cb => cb.value);
+        if (selectedAssignees.length === 0) return;
+
+        const mergedDays = new Set();
+        selectedAssignees.forEach(name => {
+          const member = memberList.find(m => m.name === name);
+          if (member && member.workingDays) {
+            member.workingDays.forEach(d => mergedDays.add(d));
+          }
+        });
+
+        document.querySelectorAll('.rec-day').forEach(cb => {
+          cb.checked = mergedDays.has(cb.value);
+        });
+      }
+
+      // Quick-assign helpers for the Add/Edit Task modal: checks the checkbox of
+      // every team member whose Title matches the given one, so a whole role group
+      // (Coordinators, Sr. Coordinators, CS Supervisors, Escalation Supervisors)
+      // can be assigned in one click instead of ticking each name individually.
+      function assignByTitle(title) {
+        const targetTitle = String(title || '').trim().toLowerCase();
+        document.querySelectorAll('.task-assignee-cb').forEach(cb => {
+          const member = memberList.find(m => m.name === cb.value);
+          if (member && String(member.title || '').trim().toLowerCase() === targetTitle) {
+            cb.checked = true;
+          }
+        });
+        syncWithAssigneeSchedule();
+      }
+
+      function toggleRecurringOptions() {
+        const isChecked = document.getElementById('taskIsRecurring').checked;
+        const container = document.getElementById('recurringDaysContainer');
+        const dueDateContainer = document.getElementById('dueDateContainer');
+        if (isChecked) {
+          container.classList.remove('hidden');
+          dueDateContainer.classList.add('hidden');
+          syncWithAssigneeSchedule();
+        } else {
+          container.classList.add('hidden');
+          dueDateContainer.classList.remove('hidden');
+        }
+      }
+
+      function closeTaskModal() {
+        document.getElementById('taskModal').classList.add('hidden');
+      }
+
+      function saveTaskModal() {
+        const row = document.getElementById('taskRow').value;
+        const taskName = document.getElementById('taskNameInput').value.trim();
+        const taskType = document.getElementById('taskTypeInput').value;
+        const isActive = document.getElementById('taskIsActiveInput').value === 'true';
+        const dashboardName = document.getElementById('dashboardNameInput').value.trim();
+        const dashboardLink = document.getElementById('taskLinkInput').value.trim();
+
+        if (!taskName) {
+          alert('Please enter a task name.');
+          return;
+        }
+
+        const duplicateMatch = findDuplicateTaskByName(taskName, row);
+        if (duplicateMatch) {
+          const proceed = confirm(`A task named "${duplicateMatch.taskName}" already exists (Row ${duplicateMatch.row}).\n\nSave this as a separate duplicate task anyway?\n\nTip: use "Find & Clean Duplicates" in Task Setup afterwards to merge them.`);
+          if (!proceed) return;
+        }
+
+        const assignedTo = Array.from(document.querySelectorAll('.task-assignee-cb:checked')).map(cb => cb.value);
+        const isRecurring = document.getElementById('taskIsRecurring').checked;
+        const recurringDays = Array.from(document.querySelectorAll('.rec-day:checked')).map(cb => cb.value);
+        const dueDate = document.getElementById('taskDueDateInput').value;
+
+        google.script.run
+          .withSuccessHandler(() => {
+            closeTaskModal();
+            loadTasks();
+          })
+          .saveTaskMaster({
+            row: row,
+            taskName: taskName,
+            taskType: taskType,
+            isActive: isActive,
+            dashboardName: dashboardName,
+            dashboardLink: dashboardLink,
+            assignedTo: assignedTo,
+            isRecurring: isRecurring,
+            recurringDays: recurringDays,
+            dueDate: dueDate,
+            currentUserName: selectedUser ? selectedUser.name : 'System'
+          });
+      }
+
+      function deleteTask(row) {
+        if (confirm('Are you sure you want to deactivate/pause this task?')) {
+          google.script.run
+            .withSuccessHandler(() => loadTasks())
+            .deleteTaskMaster(row);
+        }
+      }
+
+      function handleToggle(row, isChecked, arg) {
+        // Checking always requires a record count. If one wasn't supplied yet,
+        // route through the single-task completion modal first.
+        if (isChecked && typeof arg !== 'number') {
+          pendingSingleToggleCheckbox = (arg && arg.tagName) ? arg : null;
+          openSingleCompleteModal(row);
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(() => {
+            loadTasks();
+          })
+          .toggleTaskStatus(row, isChecked, selectedUser.name, selectedUser.title, isChecked ? arg : '');
+      }
+
+      function openSingleCompleteModal(row) {
+        const task = masterTaskList.find(t => t.row === row);
+        if (!task) return;
+        singleCompleteModalRow = row;
+        document.getElementById('singleCompleteModalTaskName').innerText = task.taskName;
+        document.getElementById('singleCompleteCountInput').value = '';
+        document.getElementById('singleCompleteCountError').classList.add('hidden');
+        document.getElementById('singleCompleteModal').classList.remove('hidden');
+      }
+
+      function closeSingleCompleteModal() {
+        document.getElementById('singleCompleteModal').classList.add('hidden');
+        if (pendingSingleToggleCheckbox) {
+          pendingSingleToggleCheckbox.checked = false;
+        }
+        pendingSingleToggleCheckbox = null;
+        singleCompleteModalRow = null;
+      }
+
+      function confirmSingleTaskComplete() {
+        const row = singleCompleteModalRow;
+        if (!row) { closeSingleCompleteModal(); return; }
+        const countInput = document.getElementById('singleCompleteCountInput');
+        const count = parseInt(countInput.value, 10);
+        if (!countInput.value.trim() || isNaN(count) || count < 1) {
+          document.getElementById('singleCompleteCountError').classList.remove('hidden');
+          return;
+        }
+        pendingSingleToggleCheckbox = null;
+        closeSingleCompleteModal();
+        handleToggle(row, true, count);
+      }
+
+      // ==========================================
+      // SHARED TASK COMPLETION (personal vs. team-wide)
+      // ==========================================
+
+      // Fires when the checkbox on a shared/multi-assignee task changes.
+      function handleSharedToggle(row, isChecked, wasGloballyCompleted, checkboxEl) {
+        if (!isChecked) {
+          // Unchecking: revert whichever completion state is currently in effect.
+          // If it was completed for the whole team, undo that (same as the classic
+          // single-assignee flow). Otherwise it was just your personal copy — revert only that.
+          if (wasGloballyCompleted) {
+            handleToggle(row, false);
+          } else {
+            setPersonalCompletion(row, false);
+          }
+          return;
+        }
+
+        // Checking a shared task always needs the confirmation step so a personal
+        // "done" doesn't silently clear it from teammates' queues by accident.
+        pendingShareToggleCheckbox = checkboxEl;
+        openMarkDoneModal(row);
+      }
+
+      function setPersonalCompletion(row, isCompleted, recordsCount) {
+        if (!selectedUser) return;
+        google.script.run
+          .withSuccessHandler(() => loadTasks())
+          .withFailureHandler(err => { alert('Error updating task: ' + err); loadTasks(); })
+          .setPersonalTaskStatus(row, selectedUser.name, selectedUser.title, isCompleted ? 'Completed' : 'Pending', '', isCompleted ? recordsCount : '');
+      }
+
+      function openMarkDoneModal(row, forceForAll) {
+        const task = masterTaskList.find(t => t.row === row);
+        if (!task) return;
+        markDoneModalRow = row;
+        document.getElementById('markDoneModalTaskName').innerText = task.taskName;
+        document.getElementById('markDoneModalAssignees').innerText = task.assignedTo.join(', ');
+        document.getElementById('markDoneForAllCheckbox').checked = !!forceForAll;
+        document.getElementById('markDoneCountInput').value = '';
+        document.getElementById('markDoneCountError').classList.add('hidden');
+        document.getElementById('markDoneModal').classList.remove('hidden');
+      }
+
+      function closeMarkDoneModal(reverted) {
+        document.getElementById('markDoneModal').classList.add('hidden');
+        if (reverted && pendingShareToggleCheckbox) {
+          pendingShareToggleCheckbox.checked = false;
+        }
+        pendingShareToggleCheckbox = null;
+        markDoneModalRow = null;
+      }
+
+      function confirmMarkDone() {
+        const row = markDoneModalRow;
+        if (!row) { closeMarkDoneModal(false); return; }
+        const countInput = document.getElementById('markDoneCountInput');
+        const count = parseInt(countInput.value, 10);
+        if (!countInput.value.trim() || isNaN(count) || count < 1) {
+          document.getElementById('markDoneCountError').classList.remove('hidden');
+          return;
+        }
+        const forAll = document.getElementById('markDoneForAllCheckbox').checked;
+        document.getElementById('markDoneModal').classList.add('hidden');
+        pendingShareToggleCheckbox = null;
+        markDoneModalRow = null;
+
+        if (forAll) {
+          handleToggle(row, true, count);
+        } else {
+          setPersonalCompletion(row, true, count);
+        }
+      }
+
+      // Retroactive "Mark Complete for All" — for when someone already completed
+      // their own personal copy but forgot to clear it for the rest of the team.
+      function promptMarkCompleteForAll(row) {
+        openMarkDoneModal(row, true);
+      }
+
+      // ==========================================
+      // HAND OFF / DEFER A SHARED TASK FOR TODAY ONLY
+      // ==========================================
+
+      function openDeferModal(row) {
+        const task = masterTaskList.find(t => t.row === row);
+        if (!task) return;
+        deferModalRow = row;
+        document.getElementById('deferModalTaskName').innerText = task.taskName;
+
+        const others = task.assignedTo.filter(n => n !== (selectedUser ? selectedUser.name : ''));
+        const select = document.getElementById('deferModalCoveredBy');
+        select.innerHTML = '<option value="">Not specified</option>' + others.map(n => `<option value="${n}">${n}</option>`).join('');
+
+        document.getElementById('deferModal').classList.remove('hidden');
+      }
+
+      function closeDeferModal() {
+        document.getElementById('deferModal').classList.add('hidden');
+        deferModalRow = null;
+      }
+
+      function confirmDefer() {
+        const row = deferModalRow;
+        if (!row || !selectedUser) { closeDeferModal(); return; }
+        const coveredBy = document.getElementById('deferModalCoveredBy').value;
+        closeDeferModal();
+
+        google.script.run
+          .withSuccessHandler(() => loadTasks())
+          .withFailureHandler(err => { alert('Error deferring task: ' + err); loadTasks(); })
+          .setPersonalTaskStatus(row, selectedUser.name, selectedUser.title, 'Deferred', coveredBy);
+      }
+
+      function undeferTask(row) {
+        setPersonalCompletion(row, false);
+      }
+
+      // Reports, the member drilldown modal, Workload Management, and the CSV
+      // export must all agree with what "My Tasks" actually shows a person today —
+      // i.e. active AND scheduled for today's CST day (not just "active, ever
+      // assigned"). A Friday-only task shouldn't count toward anyone's pending
+      // total on a Tuesday. Every report-side calculation routes through this one
+      // helper so they can't drift from each other or from My Tasks.
+      function getTodayScheduledActiveTasks() {
+        return masterTaskList.filter(t => t.isActive === true && t.isScheduledToday === true);
+      }
+
+      function loadReports() {
+        // Fresh task list + per-date statuses for the selected date (defaults to
+        // today in CST), so the summary and the drilldown can never disagree.
+        if (!selectedReportDate) selectedReportDate = getTodayCstDateStr();
+        populateReportNameFilter();
+        const dateInput = document.getElementById('reportDateFilter');
+        if (dateInput) dateInput.value = selectedReportDate;
+        updateReportDateBadge();
+        google.script.run
+          .withSuccessHandler(tasks => {
+            masterTaskList = tasks || [];
+            fetchReportStatuses();
+          })
+          .withFailureHandler(err => console.error("Error loading tasks for reports:", err))
+          .getAllTasksMaster();
+      }
+
+      // Fetch per-date personal statuses for the currently selected report date,
+      // then re-render. Safe to call whenever masterTaskList is already fresh.
+      function fetchReportStatuses() {
+        google.script.run
+          .withSuccessHandler(statuses => {
+            reportStatusByRow = buildReportStatusMap(statuses || []);
+            renderReports();
+          })
+          .withFailureHandler(err => console.error("Error loading report statuses:", err))
+          .getDailyReportStatuses(selectedReportDate);
+      }
+
+      function buildReportStatusMap(statuses) {
+        const map = {};
+        (statuses || []).forEach(s => {
+          if (!s || !s.row) return;
+          if (!map[s.row]) map[s.row] = {};
+          map[s.row][s.userName] = {
+            status: s.status,
+            note: s.note || '',
+            timestamp: s.timestamp || '',
+            recordsCount: s.recordsCount || 0
+          };
+        });
+        return map;
+      }
+
+      function onReportDateChange() {
+        selectedReportDate = document.getElementById('reportDateFilter').value;
+        updateReportDateBadge();
+        fetchReportStatuses();
+      }
+
+      function onReportNameFilterChange() {
+        selectedReportName = document.getElementById('reportNameFilter').value;
+        renderReports();
+      }
+
+      function populateReportNameFilter() {
+        const sel = document.getElementById('reportNameFilter');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">All Team Members</option>' +
+          (memberList || []).map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+      }
+
+      function updateReportDateBadge() {
+        const badge = document.getElementById('reportDateBadge');
+        if (!badge) return;
+        const todayStr = getTodayCstDateStr();
+        badge.innerText = selectedReportDate === todayStr
+          ? `Today (${selectedReportDate})`
+          : selectedReportDate || todayStr;
+      }
+
+      // ---- Daily Completion matrix (per person per day in a date range) ----
+
+      // Default range is the current CST week (Mon..today), matching how most
+      // people think of a "per day" completion report for the current shift week.
+      function getDefaultCompletionRange() {
+        const todayStr = getTodayCstDateStr();
+        const [y, m, d] = todayStr.split('-').map(Number);
+        const utcToday = Date.UTC(y, m - 1, d);
+        const dayIndex = new Date(utcToday).getUTCDay();
+        const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+        const monday = new Date(utcToday + mondayOffset * 86400000);
+        const pad = n => String(n).padStart(2, '0');
+        const fromStr = monday.getUTCFullYear() + '-' + pad(monday.getUTCMonth() + 1) + '-' + pad(monday.getUTCDate());
+        return { from: fromStr, to: todayStr };
+      }
+
+      function loadCompletionReport() {
+        if (!selectedCompletionFrom || !selectedCompletionTo) {
+          const range = getDefaultCompletionRange();
+          selectedCompletionFrom = range.from;
+          selectedCompletionTo = range.to;
+        }
+
+        const fromInput = document.getElementById('completionDateFrom');
+        const toInput = document.getElementById('completionDateTo');
+        if (fromInput) fromInput.value = selectedCompletionFrom;
+        if (toInput) toInput.value = selectedCompletionTo;
+        populateCompletionNameFilter();
+        updateCompletionRangeBadge();
+
+        google.script.run
+          .withSuccessHandler(report => {
+            completionReport = report || { members: [], days: [], data: {} };
+            renderCompletionReport();
+          })
+          .withFailureHandler(err => {
+            console.error("Error loading completion report:", err);
+            document.getElementById('completionMatrixBody').innerHTML =
+              '<tr><td colspan="10" class="py-6 text-center text-slate-400">Error loading completion report.</td></tr>';
+          })
+          .getDailyCompletionReport(selectedCompletionFrom, selectedCompletionTo);
+      }
+
+      function onCompletionDateRangeChange() {
+        selectedCompletionFrom = document.getElementById('completionDateFrom').value;
+        selectedCompletionTo = document.getElementById('completionDateTo').value;
+
+        if (!selectedCompletionFrom || !selectedCompletionTo) {
+          alert('Please select both a From and To date.');
+          return;
+        }
+        if (selectedCompletionFrom > selectedCompletionTo) {
+          alert('"From Date" must be on or before "To Date".');
+          document.getElementById('completionDateFrom').value = '';
+          document.getElementById('completionDateTo').value = '';
+          return;
+        }
+
+        loadCompletionReport();
+      }
+
+      function onCompletionNameFilterChange() {
+        selectedCompletionName = document.getElementById('completionNameFilter').value;
+        renderCompletionReport();
+      }
+
+      function populateCompletionNameFilter() {
+        const sel = document.getElementById('completionNameFilter');
+        if (!sel) return;
+        const members = completionReport ? completionReport.members : (memberList || []);
+        const opts = ['<option value="all">All Team Members</option>']
+          .concat(members.map(m => `<option value="${m.name}">${m.name}</option>`))
+          .join('');
+        if (sel.innerHTML !== opts) sel.innerHTML = opts;
+        sel.value = selectedCompletionName || 'all';
+      }
+
+      function updateCompletionRangeBadge() {
+        const badge = document.getElementById('completionRangeBadge');
+        if (!badge) return;
+        const todayStr = getTodayCstDateStr();
+        badge.innerText = (selectedCompletionFrom && selectedCompletionTo)
+          ? `${selectedCompletionFrom} → ${selectedCompletionTo}${selectedCompletionTo === todayStr ? ' (through today)' : ''}`
+          : 'Loading range...';
+      }
+
+      function jsEscape(str) {
+        return String(str == null ? '' : str)
+          .replace(/\\/g, '\\\\')
+          .replace(/'/g, "\\'")
+          .replace(/"/g, '&quot;');
+      }
+
+      function openCompletionDrilldown(memberName, dateStr) {
+        if (!completionReport) return;
+        const cell = completionReport.data[dateStr] && completionReport.data[dateStr][memberName];
+        if (!cell || !cell.tasks || cell.tasks.length === 0) return;
+
+        const tasks = cell.tasks.map(t => ({
+          taskName: t.taskName,
+          taskType: 'Report',
+          status: 'Completed',
+          memberCompleted: true,
+          memberCount: t.records || 0
+        }));
+
+        const dateLabel = dateStr === getTodayCstDateStr() ? `${dateStr} (Today)` : dateStr;
+        showTaskListModal(
+          `${memberName} — Completed Tasks`,
+          `${dateLabel} · ${tasks.length} task(s) completed · ${cell.records} total records`,
+          tasks
+        );
+      }
+
+      function renderCompletionReport() {
+        if (!completionReport) return;
+
+        const { members, days, data } = completionReport;
+        const todayStr = getTodayCstDateStr();
+
+        const rows = selectedCompletionName && selectedCompletionName !== 'all'
+          ? members.filter(m => m.name === selectedCompletionName)
+          : members.slice();
+
+        const thead = document.getElementById('completionMatrixHead');
+        const tbody = document.getElementById('completionMatrixBody');
+
+        if (rows.length === 0 || days.length === 0) {
+          thead.innerHTML = '';
+          tbody.innerHTML = '<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">No data for the selected range.</td></tr>';
+          document.getElementById('completionStatMembers').innerText = '0';
+          document.getElementById('completionStatCompleted').innerText = '0';
+          document.getElementById('completionStatRecords').innerText = '0';
+          return;
+        }
+
+        thead.innerHTML = `
+          <tr class="border-b border-slate-100 text-slate-400 text-[10px] uppercase tracking-wider">
+            <th class="pb-2.5 font-semibold">Team Member</th>
+            ${days.map(ds => {
+              const isToday = ds === todayStr;
+              const [, mm, dd] = ds.split('-');
+              const wd = getCstWeekdayName(ds);
+              return `<th class="pb-2.5 font-semibold text-center ${isToday ? 'text-indigo-600' : ''}" title="${ds}">${wd}<span class="block text-[9px] normal-case font-medium ${isToday ? 'text-indigo-500' : 'text-slate-400'}">${mm}/${dd}</span></th>`;
+            }).join('')}
+            <th class="pb-2.5 font-semibold text-center">Range Total</th>
+          </tr>`;
+
+        const dayTotals = {};
+        let grandCompleted = 0;
+        let grandRecords = 0;
+
+        const bodyRows = rows.map(m => {
+          let rowCompleted = 0;
+          let rowRecords = 0;
+
+          const cells = days.map(ds => {
+            const entry = data[ds] && data[ds][m.name];
+            if (!entry || entry.completed === 0) {
+              return '<td class="py-2 px-1.5 text-center text-slate-200">—</td>';
+            }
+            dayTotals[ds] = (dayTotals[ds] || 0) + entry.completed;
+            rowCompleted += entry.completed;
+            grandCompleted += entry.completed;
+            rowRecords += entry.records;
+            grandRecords += entry.records;
+            const isToday = ds === todayStr;
+            const cellLabel = `${m.name} · ${ds} · ${entry.completed} task(s) completed · ${entry.records} records · click for details`;
+            return `<td class="py-2 px-1.5 text-center">
+              <button onclick="openCompletionDrilldown('${jsEscape(m.name)}', '${ds}')" title="${cellLabel}" class="inline-flex flex-col items-center gap-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg px-2 py-1 cursor-pointer transition hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 ${isToday ? 'ring-1 ring-indigo-300' : ''}">
+                <span class="font-bold text-[11px] leading-none">✓ ${entry.completed}</span>
+                ${entry.records ? `<span class="text-[9px] leading-none opacity-70">${entry.records} rec</span>` : ''}
+              </button>
+            </td>`;
+          }).join('');
+
+          return `
+            <tr class="hover:bg-slate-50/50 transition">
+              <td class="py-2.5 font-semibold text-slate-800">
+                ${m.name}
+                <span class="block text-[9px] font-normal text-slate-400">${m.title}</span>
+              </td>
+              ${cells}
+              <td class="py-2.5 text-center">
+                <span class="font-bold text-indigo-700">${rowCompleted}</span>
+                ${rowRecords ? `<span class="text-[9px] text-slate-400">· ${rowRecords} rec</span>` : ''}
+              </td>
+            </tr>`;
+        }).join('');
+
+        const totalRow = `
+          <tr class="border-t border-slate-200 bg-slate-50">
+            <td class="py-2.5 font-bold text-slate-700">${selectedCompletionName && selectedCompletionName !== 'all' ? `Day Totals (${selectedCompletionName})` : 'Day Totals (all members)'}</td>
+            ${days.map(ds => {
+              const total = dayTotals[ds] || 0;
+              return `<td class="py-2.5 text-center font-bold ${total ? 'text-emerald-700' : 'text-slate-300'}">${total || '—'}</td>`;
+            }).join('')}
+            <td class="py-2.5 text-center font-extrabold text-indigo-700">${grandCompleted}</td>
+          </tr>`;
+
+        tbody.innerHTML = bodyRows + totalRow;
+
+        document.getElementById('completionStatMembers').innerText = rows.length;
+        document.getElementById('completionStatCompleted').innerText = grandCompleted;
+        document.getElementById('completionStatRecords').innerText = grandRecords;
+      }
+
+      function renderReports() {
+        const userTbody = document.getElementById('userProgressReportTable');
+        if (!memberList || memberList.length === 0) {
+          userTbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400">No team profiles available.</td></tr>';
+          return;
+        }
+
+        // Day-aware: only tasks scheduled on the selected date are tallied.
+        const scheduledTasks = getTasksScheduledOn(masterTaskList, selectedReportDate);
+
+        let sumTotalAssigned = 0;
+        let sumCompleted = 0;
+        let sumPending = 0;
+        let sumRecords = 0;
+
+        const memberStats = memberList.map(member => {
+          const memberTasks = scheduledTasks.filter(t => t.assignedTo.includes(member.name));
+
+          const totalAssigned = memberTasks.length;
+          let completedCount = 0;
+          let recordsCount = 0;
+          memberTasks.forEach(t => {
+            if (isMemberCompleted(t, member.name)) {
+              completedCount += 1;
+              recordsCount += getMemberRecords(t, member.name);
+            }
+          });
+          const pendingCount = totalAssigned - completedCount;
+          const rate = totalAssigned > 0 ? Math.min(100, Math.round((completedCount / totalAssigned) * 100)) : 0;
+
+          sumTotalAssigned += totalAssigned;
+          sumCompleted += completedCount;
+          sumPending += pendingCount;
+          sumRecords += recordsCount;
+
+          return {
+            name: member.name,
+            title: member.title,
+            completed: completedCount,
+            records: recordsCount,
+            pending: pendingCount,
+            totalAssigned: totalAssigned,
+            rate: rate
+          };
+        });
+
+        // Name filter (client-side, applies to the table + drilldowns).
+        let filteredStats = memberStats;
+        if (selectedReportName) {
+          filteredStats = memberStats.filter(m => m.name === selectedReportName);
+        }
+
+        document.getElementById('statTotalActive').innerText = sumTotalAssigned;
+        document.getElementById('statCompleted').innerText = sumCompleted;
+        document.getElementById('statPending').innerText = sumPending;
+        document.getElementById('statRecords').innerText = sumRecords;
+
+        const progressState = sortState.progress;
+        let sortedStats = filteredStats;
+        if (progressState && progressState.col) {
+          sortedStats = filteredStats.slice().sort((a, b) => {
+            let va = a[progressState.col], vb = b[progressState.col];
+            if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+            return compareValues(va, vb) * progressState.dir;
+          });
+        }
+
+        userTbody.innerHTML = sortedStats.map(m => `
+          <tr class="hover:bg-slate-50/50 transition">
+            <td class="py-2.5 font-semibold text-slate-800">${m.name}</td>
+            <td class="py-2.5 text-slate-500">${m.title}</td>
+            <td class="py-2.5 text-center">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'completed', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 rounded-md transition cursor-pointer">
+                ${m.completed}
+              </button>
+            </td>
+            <td class="py-2.5 text-center">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'completed', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 border border-sky-200/60 rounded-md transition cursor-pointer">
+                ${m.records}
+              </button>
+            </td>
+            <td class="py-2.5 text-center">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'pending', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200/60 rounded-md transition cursor-pointer">
+                ${m.pending}
+              </button>
+            </td>
+            <td class="py-2.5 text-center">
+              <button onclick="openTaskDrilldownModal('${m.name}', 'total', '${selectedReportDate}')" class="px-2 py-0.5 font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/60 rounded-md transition cursor-pointer">
+                ${m.totalAssigned}
+              </button>
+            </td>
+            <td class="py-2.5 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <div class="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-emerald-500 h-1.5 rounded-full" style="width: ${m.rate}%"></div>
+                </div>
+                <span class="text-[10px] font-bold text-slate-600 w-7">${m.rate}%</span>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+        renderTasksByDayGrid('progressByDayGrid', computeTasksByDay(masterTaskList));
+
+        const footerEl = document.getElementById('footerTotalDeptTasks');
+        if (footerEl) footerEl.innerText = scheduledTasks.length;
+      }
+
+      function showTaskListModal(title, subtitle, tasks) {
+        document.getElementById('drilldownModalTitle').innerText = title;
+        document.getElementById('drilldownModalSubtitle').innerText = subtitle;
+
+        const tbody = document.getElementById('drilldownModalTableBody');
+        if (!tasks || tasks.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-xs text-slate-400">No tasks found.</td></tr>`;
+        } else {
+          tbody.innerHTML = tasks.map(t => `
+            <tr class="hover:bg-slate-50/50 transition">
+              <td class="py-2 px-1 font-medium text-slate-800 max-w-[220px] truncate" title="${t.taskName}">${t.taskName}</td>
+              <td class="py-2 px-1"><span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full text-[9px] font-medium border border-slate-200/50">${t.taskType || 'Report'}</span></td>
+              <td class="py-2 px-1">
+                ${t.status === 'Deferred'
+                  ? '<span class="px-2 py-0.5 text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200/60 rounded-md">Deferred</span>'
+                  : ((t.memberCompleted !== undefined ? t.memberCompleted : t.completed)
+                    ? `<span class="px-2 py-0.5 text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/60 rounded-md">Completed${t.memberCount ? ` · ${t.memberCount} records` : ''}</span>` 
+                    : '<span class="px-2 py-0.5 text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200/60 rounded-md">Pending</span>'
+                  )
+                }
+              </td>
+              <td class="py-2 px-1 text-right">${getDashboardLinkHtml(t)}</td>
+            </tr>
+          `).join('');
+        }
+
+        document.getElementById('taskDrilldownModal').classList.remove('hidden');
+      }
+
+      function openTaskDrilldownModal(memberName, filterType, dateStr) {
+        const targetDate = dateStr || selectedReportDate;
+        const scheduledTasks = getTasksScheduledOn(masterTaskList, targetDate);
+        // Resolve each task's effective completion state for this specific member on
+        // the target date (personal statuses for that date + the global team flag's
+        // completedDate), so the drilldown always matches the summary counts.
+        const memberTasks = scheduledTasks.filter(t => t.assignedTo.includes(memberName)).map(t => {
+          const memberCompleted = isMemberCompleted(t, memberName);
+          const memberCount = memberCompleted ? getMemberRecords(t, memberName) : 0;
+          return Object.assign({}, t, { memberCompleted: memberCompleted, memberCount: memberCount });
+        });
+
+        let displayedTasks = [];
+        let statusLabel = "All Assigned Tasks";
+
+        if (filterType === 'completed') {
+          displayedTasks = memberTasks.filter(t => t.memberCompleted === true);
+          statusLabel = "Completed Tasks";
+        } else if (filterType === 'pending') {
+          displayedTasks = memberTasks.filter(t => t.memberCompleted !== true);
+          statusLabel = "Pending Tasks";
+        } else {
+          displayedTasks = memberTasks;
+          statusLabel = "Total Assigned Tasks";
+        }
+
+        const dateLabel = targetDate === getTodayCstDateStr() ? `${targetDate} (Today)` : targetDate;
+        showTaskListModal(`${memberName} — ${statusLabel}`, `${dateLabel} · Showing ${displayedTasks.length} task(s)`, displayedTasks);
+      }
+
+      function closeDrilldownModal() {
+        document.getElementById('taskDrilldownModal').classList.add('hidden');
+      }
+
+      function loadWorkloadManagement() {
+        // Refetch tasks fresh before tallying — same rationale as loadReports():
+        // avoid racing against whatever masterTaskList happened to hold from
+        // elsewhere, which could show a stale total until the next click/refresh.
+        google.script.run
+          .withSuccessHandler(tasks => {
+            masterTaskList = tasks || [];
+            renderWorkloadManagement();
+          })
+          .withFailureHandler(err => console.error("Error loading tasks for workload report:", err))
+          .getAllTasksMaster();
+      }
+
+      function renderWorkloadManagement() {
+        if (!memberList || memberList.length === 0) return;
+
+        const activeMasterTasks = getTodayScheduledActiveTasks();
+        const totalTasksCount = activeMasterTasks.length;
+
+        const memberLoads = memberList.map(m => {
+          const assignedCount = activeMasterTasks.filter(t => t.assignedTo.includes(m.name)).length;
+          return {
+            name: m.name,
+            title: m.title,
+            count: assignedCount
+          };
+        });
+
+        const totalAssignedSum = memberLoads.reduce((acc, curr) => acc + curr.count, 0);
+        const avgTaskLoad = memberList.length ? (totalAssignedSum / memberList.length) : 0;
+
+        document.getElementById('workloadTotalTasks').innerText = totalTasksCount;
+        document.getElementById('workloadAvgTasks').innerText = avgTaskLoad.toFixed(1);
+        document.getElementById('workloadTotalMembers').innerText = memberList.length;
+
+        const workloadState = sortState.workload;
+        let sortedLoads = memberLoads;
+        if (workloadState && workloadState.col) {
+          sortedLoads = memberLoads.slice().sort((a, b) => {
+            let va, vb;
+            if (workloadState.col === 'diff') {
+              va = a.count - avgTaskLoad; vb = b.count - avgTaskLoad;
+            } else {
+              va = a[workloadState.col];
+              vb = b[workloadState.col];
+              if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+            }
+            return compareValues(va, vb) * workloadState.dir;
+          });
+        }
+
+        const tbody = document.getElementById('workloadTableBody');
+        tbody.innerHTML = sortedLoads.map(m => {
+          const diff = m.count - avgTaskLoad;
+          let badge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">Balanced Load</span>';
+
+          if (diff > 2) {
+            badge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">Heavy Load</span>';
+          } else if (diff < -2) {
+            badge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-sky-50 text-sky-600 border border-sky-200">Light Load</span>';
+          }
+
+          const diffText = diff > 0 ? `+${diff.toFixed(1)} above avg` : `${diff.toFixed(1)} below avg`;
+
+          return `
+            <tr class="hover:bg-slate-50/50 transition">
+              <td class="py-2.5 font-semibold text-slate-800">${m.name}</td>
+              <td class="py-2.5 text-slate-500">${m.title}</td>
+              <td class="py-2.5 text-center font-bold text-indigo-700">${m.count}</td>
+              <td class="py-2.5 text-center text-slate-500 font-medium">${diffText}</td>
+              <td class="py-2.5 text-right">${badge}</td>
+            </tr>
+          `;
+        }).join('');
+
+        renderTasksByDayGrid('workloadByDayGrid', computeTasksByDay(masterTaskList));
+      }
+
+      function exportReportCSV() {
+        if (!memberList) {
+          alert('Report data is loading, please try again in a moment.');
+          return;
+        }
+
+        const reportDate = selectedReportDate || getTodayCstDateStr();
+        const scheduledTasks = getTasksScheduledOn(masterTaskList, reportDate);
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += `Shift Performance Report (CST Date: ${reportDate})\n`;
+        csvContent += `Team Member,Title,Completed Tasks,Records Count,Pending Tasks,Total Assigned Tasks,Completion Rate\n`;
+
+        memberList.forEach(m => {
+          const memberTasks = scheduledTasks.filter(t => t.assignedTo.includes(m.name));
+          let completedCount = 0;
+          let recordsCount = 0;
+          memberTasks.forEach(t => {
+            if (isMemberCompleted(t, m.name)) {
+              completedCount += 1;
+              recordsCount += getMemberRecords(t, m.name);
+            }
+          });
+          const pendingCount = memberTasks.length - completedCount;
+          const rate = memberTasks.length > 0 ? Math.min(100, Math.round((completedCount / memberTasks.length) * 100)) : 0;
+
+          csvContent += `"${m.name}","${m.title}",${completedCount},${recordsCount},${pendingCount},${memberTasks.length},"${rate}%"`;
+          if (selectedReportName && m.name === selectedReportName) {
+            csvContent += `,FILTERED`;
+          }
+          csvContent += `\n`;
+        });
+
+        csvContent += `\nActive Tasks by Day (Department-wide)\n`;
+        csvContent += `Day,Active Task Count\n`;
+        const tasksByDay = computeTasksByDay(scheduledTasks);
+        WEEK_DAYS.forEach(day => {
+          csvContent += `"${day}",${tasksByDay[day].length}\n`;
+        });
+        csvContent += `\nTotal Department Tasks (Active on ${reportDate}),${scheduledTasks.length}\n`;
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Shift_Task_Completion_Report_${reportDate}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      function loadTeamTable(members) {
+        const tbody = document.getElementById('teamTableBody');
+
+        const state = sortState.team;
+        let sortedMembers = members;
+        if (state && state.col) {
+          sortedMembers = members.slice().sort((a, b) => {
+            let va, vb;
+            if (state.col === 'workingDaysCount') {
+              va = a.workingDays.length; vb = b.workingDays.length;
+            } else {
+              va = (a[state.col] || '').toLowerCase();
+              vb = (b[state.col] || '').toLowerCase();
+            }
+            return compareValues(va, vb) * state.dir;
+          });
+        }
+
+        tbody.innerHTML = sortedMembers.map(m => `
+          <tr class="hover:bg-slate-50/50 transition">
+            <td class="py-2.5 px-2 font-medium text-slate-800">${m.name}</td>
+            <td class="py-2.5 px-2 text-slate-500">${m.title}</td>
+            <td class="py-2.5 px-2 text-slate-500">${m.workingDays.join(', ')}</td>
+            <td class="py-2.5 px-2 text-right space-x-2">
+              <button onclick="openUserModal(${m.row}, '${m.name}', '${m.title}')" class="text-indigo-600 hover:text-indigo-800 font-medium text-[11px]">Edit</button>
+              <button onclick="deleteMember(${m.row})" class="text-rose-500 hover:text-rose-700 font-medium text-[11px]">Deactivate</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      function openUserModal(row = '', name = '', title = 'Coordinator') {
+        document.getElementById('userRow').value = row;
+        document.getElementById('userNameInput').value = name;
+        document.getElementById('userTitleInput').value = title;
+        
+        const member = row ? memberList.find(m => m.row === row) : null;
+        const workDays = member ? member.workingDays : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+        document.querySelectorAll('.work-day').forEach(cb => {
+          cb.checked = workDays.includes(cb.value);
+        });
+
+        document.getElementById('userModalTitle').innerText = row ? 'Edit Team Member' : 'Add Team Member';
+        document.getElementById('userModal').classList.remove('hidden');
+      }
+
+      function closeUserModal() {
+        document.getElementById('userModal').classList.add('hidden');
+      }
+
+      function saveUserModal() {
+        const memberData = {
+          row: document.getElementById('userRow').value,
+          name: document.getElementById('userNameInput').value.trim(),
+          title: document.getElementById('userTitleInput').value,
+          workingDays: Array.from(document.querySelectorAll('.work-day:checked')).map(cb => cb.value)
+        };
+
+        if (!memberData.name) {
+          alert('Please enter Name.');
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(() => {
+            closeUserModal();
+            fetchTeamData(() => {
+              loadTasks();
+            });
+          })
+          .saveTeamMember(memberData);
+      }
+
+      function deleteMember(row) {
+        if (confirm('Deactivate this member?')) {
+          google.script.run
+            .withSuccessHandler(() => {
+              fetchTeamData(() => {
+                loadTasks();
+              });
+            })
+            .deleteTeamMember(row);
+        }
+      }
+    </script>
+  </body>
+</html>
